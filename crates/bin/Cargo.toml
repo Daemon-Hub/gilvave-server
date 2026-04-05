@@ -1,0 +1,21 @@
+[package]
+name = "gilvave-bin"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+dotenvy.workspace = true
+jsonwebtoken.workspace = true
+
+# Global Allocator
+mimalloc = { version = "0.1", features = ["local_dynamic_tls"] }
+
+gilvave-gateway = { path = "../gateway" }
+gilvave-http-api = { path = "../http-api" }
+gilvave-infra = { path = "../infra" }
+gilvave-realtime = { path = "../realtime" }

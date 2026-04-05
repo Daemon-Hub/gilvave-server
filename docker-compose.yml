@@ -1,0 +1,24 @@
+x-env: &env
+  env_file:
+    - .env
+
+services:
+  postgres:
+    <<: *env
+    image: postgres:16-alpine
+    container_name: gilvave-postgres
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    <<: *env
+    image: redis:7
+    container_name: gilvave-redis
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}
+
+volumes:
+  postgres_data:

@@ -1,0 +1,63 @@
+[workspace]
+resolver = "3"
+
+members = [
+    "crates/core",
+    "crates/infra",
+    "crates/gateway",
+    "crates/http-api",
+    "crates/realtime",
+    "crates/media",
+    "crates/bin",
+]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.75"
+
+[workspace.dependencies]
+
+# --- async/runtime ---
+tokio = { version = "1.50.0", features = ["full"] }
+tokio-util = "0.7.18"
+
+# --- web ---
+axum = { version = "0.8.8", features = ["ws"] }
+tower-http = { version = "0.6.8", features = ["trace", "fs"] }
+
+# --- serialization ---
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+
+# --- observability ---
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = [
+    "fmt",
+    "env-filter",
+    "chrono",
+    "json",
+] }
+
+# --- utils ---
+uuid = { version = "1.23.0", features = ["v4", "v7", "serde"] }
+anyhow = "1.0.102"
+validator = { version = "0.20", features = ["derive"] }
+dotenvy = "0.15.7"
+bytes = "1.11.1"
+time = { version = "0.3.47", features = ["serde"] }
+thiserror = "2.0.18"
+
+# --- database ---
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio-native-tls",
+    "postgres",
+    "macros",
+    "uuid",
+    "chrono",
+    "migrate",
+] }
+
+# --- auth ---
+jsonwebtoken = { version = "10.3.0", features = ["default", "rust_crypto"] }
+rand = "0.10"
+argon2 = "0.5.3"

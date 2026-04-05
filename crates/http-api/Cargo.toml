@@ -1,0 +1,19 @@
+[package]
+name = "gilvave-http-api"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+validator.workspace = true
+
+gilvave-core = { path = "../core" }
+gilvave-infra = { path = "../infra" }
