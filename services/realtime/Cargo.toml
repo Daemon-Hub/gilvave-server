@@ -1,0 +1,10 @@
+[package]
+name = "gilvave-realtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+
+gilvave-core = { path = "../../crates/core" }

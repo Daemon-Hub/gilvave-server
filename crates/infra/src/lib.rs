@@ -1,4 +1,4 @@
-pub mod auth;
 pub mod db;
 pub mod jwt;
-pub mod user_repo;
+pub mod security;
+pub mod service;

@@ -1,12 +1,16 @@
 [package]
-name = "gilvave-core"
+name = "gilvave-settings"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
 serde.workspace = true
-uuid.workspace = true
-thiserror.workspace = true
-validator.workspace = true
+dotenvy.workspace = true
+anyhow.workspace = true
 time.workspace = true
+
+
+[build-dependencies]
+dotenvy.workspace = true
+anyhow.workspace = true

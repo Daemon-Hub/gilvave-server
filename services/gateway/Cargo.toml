@@ -1,0 +1,20 @@
+[package]
+name = "gilvave-gateway"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+futures.workspace = true
+mimalloc.workspace = true
+
+gilvave-core = { path = "../../crates/core" }
+gilvave-infra = { path = "../../crates/infra" }
+gilvave-messaging = { path = "../../crates/messaging" }
+
+gilvave-realtime = { path = "../realtime" }

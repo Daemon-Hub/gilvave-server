@@ -1,10 +1,11 @@
 [package]
 name = "gilvave-infra"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+axum.workspace = true
 sqlx.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -15,8 +16,11 @@ dotenvy.workspace = true
 argon2.workspace = true
 rand.workspace = true
 jsonwebtoken.workspace = true
+time.workspace = true
+base64 = "0.22.1"
 
 gilvave-core = { path = "../core" }
+gilvave-settings = { path = "../settings" }
 
 [build-dependencies]
-dotenvy = "0.15.7"
+gilvave-settings = { path = "../settings" }

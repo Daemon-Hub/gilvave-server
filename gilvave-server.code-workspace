@@ -1,0 +1,112 @@
+{
+    "folders": [
+        {
+            "name": "gilvave-server",
+            "path": "."
+        },
+        {
+            "name": "services",
+            "path": "services"
+        },
+        {
+            "name": "crates",
+            "path": "crates"
+        },
+        {
+            "name": "docker",
+            "path": "docker"
+        },
+        {
+            "name": "migrations",
+            "path": "migrations"
+        }
+    ],
+    "settings": {
+        // --- RUST ---
+        "rust-analyzer.linkedProjects": [
+            "Cargo.toml"
+        ],
+        "rust-analyzer.checkOnSave": true,
+        "rust-analyzer.check.command": "clippy",
+        "rust-analyzer.procMacro.enable": true,
+        // быстрее индексация
+        "rust-analyzer.cachePriming.enable": true,
+        // --- FORMAT ---
+        "editor.formatOnSave": true,
+        "[rust]": {
+            "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        // --- FILES ---
+        "files.exclude": {
+            "**/Cargo.lock": true,
+            "**/target": true,
+            "**/.git": true,
+            "**/.DS_Store": true
+        },
+        "search.exclude": {
+            "**/target": true
+        },
+        // --- TERMINAL ---
+        "terminal.integrated.defaultProfile.windows": "PowerShell",
+        // --- ENV ---
+        "dotenv.enableAutocloaking": false,
+    },
+    "extensions": {
+        "recommendations": [
+            "ninjaqwert-2239-indie.cp2077-redscript",
+            "rust-lang.rust-analyzer",
+            "vadimcn.vscode-lldb",
+            "tamasfe.even-better-toml",
+            "usernamehw.errorlens",
+            "dotenv.dotenv-vscode",
+            "eamodio.gitlens",
+            "github.copilot-chat",
+            "ms-ceintl.vscode-language-pack-ru",
+            "adpyke.codesnap",
+            "fill-labs.dependi",
+            "pkief.material-icon-theme",
+            "ms-vscode.powershell",
+            "dustypomerleau.rust-syntax",
+            "redhat.vscode-yaml"
+        ]
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "label": "cargo clippy",
+                "type": "shell",
+                "command": "cargo clippy --all-targets --all-features",
+                "group": "build"
+            },
+            {
+                "label": "run http-api",
+                "type": "shell",
+                "command": "cargo run -p gilvave-http-api",
+                "problemMatcher": [
+                    "$rustc-watch"
+                ],
+                "isBackground": true
+            },
+            {
+                "label": "run gilvave-gateway",
+                "type": "shell",
+                "command": "cargo run -p gateway"
+            },
+            {
+                "label": "run gilvave-realtime",
+                "type": "shell",
+                "command": "cargo run -p realtime"
+            },
+            {
+                "label": "docker up",
+                "type": "shell",
+                "command": "wsl -d Ubuntu --exec sudo docker compose up -d",
+                "options": {
+                    "cwd": "${workspaceFolder}"
+                },
+                "group": "build"
+            }
+        ]
+    }
+}

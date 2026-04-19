@@ -20,5 +20,12 @@ services:
     ports:
       - ${REDIS_PORT}:${REDIS_PORT}
 
+  rabbitmq:
+    <<: *env
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672" # UI
+
 volumes:
   postgres_data:
