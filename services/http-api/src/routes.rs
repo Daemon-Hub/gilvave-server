@@ -12,7 +12,8 @@ pub fn routes(state: AppState) -> Router {
             Router::new()
                 .route("/register", post(register))
                 .route("/login", post(login))
-                .route("/foo", get(foo)),
+                .route("/refresh", post(refresh_token))
+                .route("/me", get(get_profile)),
         )
         .with_state(state)
 }

@@ -1,7 +1,8 @@
 use axum::{Json, extract::State};
 
 use gilvave_core::dto::user::{
-    FooData, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse,
+    AuthTokensResponse, LoginRequest, RefreshTokenRequest, RegisterRequest, RegisterResponse,
+    UserProfileResponse,
 };
 use gilvave_infra::{
     jwt::{create_jwt, generate_refresh_token},
@@ -45,7 +46,7 @@ pub async fn register(
 pub async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginRequest>,
-) -> Result<Json<LoginResponse>, AppError> {
+) -> Result<Json<AuthTokensResponse>, AppError> {
     let user = state
         .user_service
         .find_by_email(&body.email)
@@ -71,14 +72,43 @@ pub async fn login(
         .sync_refresh_token(user.id, &refresh_token)
         .await?;
 
-    Ok(Json(LoginResponse {
+    Ok(Json(AuthTokensResponse {
         access_token,
         refresh_token,
     }))
 }
 
-pub async fn foo(AuthUser { user }: AuthUser) -> Json<FooData> {
-    Json(FooData {
-        message: String::from("foo"),
+pub async fn refresh_token(
+    State(state): State<AppState>,
+    Json(body): Json<RefreshTokenRequest>,
+) -> Result<Json<AuthTokensResponse>, AppError> {
+    let user_id = state
+        .ref_token_service
+        .get_token(&body.refresh_token)
+        .await
+        .ok_or(AppError::Unauthorized(
+            "Invalid or expired refresh token".to_string(),
+        ))?;
+
+    let access_token = create_jwt(&user_id.0.to_string())?;
+    let refresh_token = generate_refresh_token();
+
+    state
+        .ref_token_service
+        .sync_refresh_token(user_id, &refresh_token)
+        .await?;
+
+    Ok(Json(AuthTokensResponse {
+        access_token,
+        refresh_token,
+    }))
+}
+
+pub async fn get_profile(AuthUser { user }: AuthUser) -> Json<UserProfileResponse> {
+    Json(UserProfileResponse {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        is_active: user.is_active,
     })
 }

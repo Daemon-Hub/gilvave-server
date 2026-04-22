@@ -14,6 +14,7 @@ tracing-subscriber.workspace = true
 jsonwebtoken.workspace = true
 serde_json.workspace = true
 mimalloc.workspace = true
+axum-extra = { version = "0.12.6", features = ["cookie"] }
 
 gilvave-core = { path = "../../crates/core" }
 gilvave-infra = { path = "../../crates/infra" }

@@ -8,6 +8,23 @@ pub struct RefTokenService {
 }
 
 impl RefTokenService {
+    pub async fn get_token(&self, token: &str) -> Option<UserId> {
+        if let Ok(Some(res)) = sqlx::query!(
+            r#"
+            SELECT user_id FROM refresh_token
+            WHERE token = $1;
+            "#,
+            token
+        )
+        .fetch_optional(&self.db)
+        .await
+            && let Some(user_id) = res.user_id
+        {
+            return Some(UserId(user_id));
+        }
+        None
+    }
+
     pub async fn create_token(&self, user_id: UserId, token: &str) -> anyhow::Result<()> {
         let now = time::OffsetDateTime::now_utc();
 

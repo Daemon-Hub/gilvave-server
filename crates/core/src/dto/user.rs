@@ -22,12 +22,20 @@ pub struct LoginRequest {
 }
 
 #[derive(Serialize)]
-pub struct LoginResponse {
+pub struct AuthTokensResponse {
     pub access_token: String,
     pub refresh_token: String,
 }
 
+#[derive(Deserialize)]
+pub struct RefreshTokenRequest {
+    pub refresh_token: String,
+}
+
 #[derive(Serialize)]
-pub struct FooData {
-    pub message: String
+pub struct UserProfileResponse {
+    pub id: UserId,
+    pub username: String,
+    pub email: String,
+    pub is_active: bool,
 }
