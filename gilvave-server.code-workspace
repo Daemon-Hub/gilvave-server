@@ -13,10 +13,6 @@
             "path": "crates"
         },
         {
-            "name": "docker",
-            "path": "docker"
-        },
-        {
             "name": "migrations",
             "path": "migrations"
         }
@@ -50,6 +46,7 @@
         "terminal.integrated.defaultProfile.windows": "PowerShell",
         // --- ENV ---
         "dotenv.enableAutocloaking": false,
+        "commentTranslate.hover.enabled": true,
     },
     "extensions": {
         "recommendations": [
@@ -74,13 +71,7 @@
         "version": "2.0.0",
         "tasks": [
             {
-                "label": "cargo clippy",
-                "type": "shell",
-                "command": "cargo clippy --all-targets --all-features",
-                "group": "build"
-            },
-            {
-                "label": "run http-api",
+                "label": "run gilvave-http-api",
                 "type": "shell",
                 "command": "cargo run -p gilvave-http-api",
                 "problemMatcher": [
@@ -91,12 +82,11 @@
             {
                 "label": "run gilvave-gateway",
                 "type": "shell",
-                "command": "cargo run -p gateway"
-            },
-            {
-                "label": "run gilvave-realtime",
-                "type": "shell",
-                "command": "cargo run -p realtime"
+                "command": "cargo run -p gilvave-gateway",
+                "problemMatcher": [
+                    "$rustc-watch"
+                ],
+                "isBackground": true
             },
             {
                 "label": "docker up",
@@ -105,7 +95,8 @@
                 "options": {
                     "cwd": "${workspaceFolder}"
                 },
-                "group": "build"
+                "group": "build",
+                "isBackground": true
             }
         ]
     }

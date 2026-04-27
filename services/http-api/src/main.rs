@@ -1,7 +1,7 @@
+mod errors;
 mod handlers;
 mod routes;
 mod state;
-mod errors;
 
 use jsonwebtoken::crypto::{CryptoProvider, rust_crypto::DEFAULT_PROVIDER};
 use mimalloc::MiMalloc;
@@ -18,7 +18,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // tracing_subscriber::fmt().init();
-    // dotenvy::dotenv()?;
+
     setup_settings();
     CryptoProvider::install_default(&DEFAULT_PROVIDER).unwrap();
 

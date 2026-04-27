@@ -10,6 +10,9 @@ pub struct Settings {
     // RabbitMQ
     pub rmq_url: &'static str,
 
+    // Redis
+    pub redis_url: &'static str,
+
     // JWT
     pub access_token_expire_minutes: time::Duration,
     pub refresh_token_expire_days: time::Duration,
@@ -28,7 +31,8 @@ impl Default for Settings {
         Self {
             secret: std::env!("SECRET"),
             database_url: std::env!("DATABASE_URL"),
-            rmq_url: std::env!("RABBITMQ_DEFAULT_URI"),
+            rmq_url: std::env!("RABBITMQ_DEFAULT_URL"),
+            redis_url: std::env!("REDIS_URL"),
 
             access_token_expire_minutes: time::Duration::minutes(20),
             refresh_token_expire_days: time::Duration::days(30),
@@ -42,6 +46,7 @@ pub fn setup_settings() {
 
 pub static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
+/// Макрос предоставляющий доступ к предустановленным настройкам системы
 #[macro_export]
 macro_rules! settings {
     () => {

@@ -48,6 +48,6 @@ where
             return Err((StatusCode::FORBIDDEN, "User is inactive"));
         }
 
-        Ok(AuthUser { user })
+        Ok(Self { user })
     }
 }

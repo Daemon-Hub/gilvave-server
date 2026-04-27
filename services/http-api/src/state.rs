@@ -13,7 +13,6 @@ pub struct AppState {
 impl AppState {
     pub fn new(db: PgPool) -> Self {
         Self {
-            // db: db.clone(),
             user_service: UserService { db: db.clone() },
             ref_token_service: RefTokenService { db: db.clone() },
         }

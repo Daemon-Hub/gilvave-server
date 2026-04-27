@@ -9,7 +9,6 @@ members = [
 
     "services/gateway",
     "services/http-api",
-    "services/realtime",
 ]
 
 [workspace.package]

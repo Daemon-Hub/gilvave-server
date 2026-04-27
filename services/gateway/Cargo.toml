@@ -7,14 +7,20 @@ rust-version.workspace = true
 [dependencies]
 axum.workspace = true
 tokio.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
 futures.workspace = true
 mimalloc.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
+time.workspace = true
+
+redis = { version = "1.2.0", features = ["aio", "tokio-rustls-comp"] }
+async-trait = "0.1.89"
 
 gilvave-core = { path = "../../crates/core" }
 gilvave-infra = { path = "../../crates/infra" }
 gilvave-messaging = { path = "../../crates/messaging" }
-
-gilvave-realtime = { path = "../realtime" }
+gilvave-settings = { path = "../../crates/settings" }

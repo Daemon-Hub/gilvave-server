@@ -23,8 +23,9 @@ services:
   rabbitmq:
     <<: *env
     image: rabbitmq:3-management
+    container_name: gilvave-rabbitmq
     ports:
-      - "5672:5672"
+      - ${RABBITMQ_DEFAULT_PORT}:${RABBITMQ_DEFAULT_PORT}
       - "15672:15672" # UI
 
 volumes:
