@@ -8,22 +8,18 @@ macro_rules! id_type {
 
         impl Default for $name {
             fn default() -> Self {
-                Self(Uuid::now_v7())
+                Self(Uuid::new_v4())
             }
         }
 
         impl From<String> for $name {
             fn from(value: String) -> Self {
-                let uuid = uuid::Uuid::parse_str(&value)
-                    .expect("Failed to parse UUID from string");
+                let uuid = uuid::Uuid::parse_str(&value).expect("Failed to parse UUID from string");
                 Self(uuid)
             }
         }
     };
 }
 
-id_type!(UserId);
-id_type!(GuildId);
+id_type!(ServerId);
 id_type!(ChannelId);
-id_type!(MessageId);
-id_type!(RefreshTokenId);
