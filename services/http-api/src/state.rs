@@ -1,13 +1,14 @@
-use sqlx::PgPool;
 use axum::extract::FromRef;
+use sqlx::PgPool;
 
-use gilvave_infra::service::{ref_token_service::RefTokenService, user_service::UserService};
+use gilvave_infra::service::*;
 
 #[derive(Clone)]
 pub struct AppState {
-    // pub db: PgPool,
     pub user_service: UserService,
     pub ref_token_service: RefTokenService,
+    pub server_service: ServerService,
+    pub channel_service: ChannelService,
 }
 
 impl AppState {
@@ -15,6 +16,8 @@ impl AppState {
         Self {
             user_service: UserService { db: db.clone() },
             ref_token_service: RefTokenService { db: db.clone() },
+            server_service: ServerService { db: db.clone() },
+            channel_service: ChannelService { db: db.clone() },
         }
     }
 }

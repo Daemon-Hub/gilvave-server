@@ -6,8 +6,9 @@ CREATE TABLE servers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     name VARCHAR(100) NOT NULL,
     owner_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE, -- Владелец сервера
-    icon_url TEXT, -- Иконка сервера
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    icon_url TEXT NOT NULL, -- Иконка сервера
+    is_public BOOL NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Таблица участников серверов
@@ -27,9 +28,8 @@ CREATE TABLE channels (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     server_id UUID REFERENCES servers (id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    type channel_type DEFAULT 'text',
-    position INTEGER DEFAULT 0,
-    topic TEXT, -- Описание канала
+    type channel_type DEFAULT 'text' NOT NULL,
+    position INTEGER NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

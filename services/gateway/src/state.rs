@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::events::ServerEvent;
 use crate::service::SessionService;
 use gilvave_core::ids::UserId;
-use gilvave_infra::service::user_service::UserService;
+use gilvave_infra::service::user::UserService;
 use gilvave_messaging::RabbitClient;
 
 type Tx = mpsc::UnboundedSender<ServerEvent>;

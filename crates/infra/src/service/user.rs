@@ -29,7 +29,7 @@ impl UserService {
             .is_ok()
     }
 
-    pub async fn create_user(
+    pub async fn create(
         &self,
         username: &str,
         email: &str,

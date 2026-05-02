@@ -1,5 +1,6 @@
 use argon2::password_hash::rand_core::{OsRng, RngCore};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use gilvave_core::ids::UserId;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -8,14 +9,14 @@ use gilvave_settings::settings;
 
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,
+    pub sub: Uuid,
     pub exp: usize,
     pub jti: Uuid,
 }
 
-pub fn create_jwt(user_id: &str) -> anyhow::Result<String> {
+pub fn create_jwt(user_id: UserId) -> anyhow::Result<String> {
     let claims = Claims {
-        sub: user_id.to_string(),
+        sub: user_id.0,
         exp: settings!().access_token_expire(),
         jti: Uuid::new_v4(),
     };

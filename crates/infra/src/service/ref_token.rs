@@ -8,7 +8,7 @@ pub struct RefTokenService {
 }
 
 impl RefTokenService {
-    pub async fn get_token(&self, token: &str) -> Option<UserId> {
+    pub async fn get(&self, token: &str) -> Option<UserId> {
         if let Ok(Some(res)) = sqlx::query!(
             r#"
             SELECT user_id FROM refresh_token
@@ -25,7 +25,7 @@ impl RefTokenService {
         None
     }
 
-    pub async fn create_token(&self, user_id: UserId, token: &str) -> anyhow::Result<()> {
+    pub async fn create(&self, user_id: UserId, token: &str) -> anyhow::Result<()> {
         let now = time::OffsetDateTime::now_utc();
 
         sqlx::query!(
@@ -44,7 +44,7 @@ impl RefTokenService {
         Ok(())
     }
 
-    pub async fn delete_token(&self, user_id: UserId) -> anyhow::Result<()> {
+    pub async fn delete(&self, user_id: UserId) -> anyhow::Result<()> {
         sqlx::query!(
             r#"
             DELETE FROM refresh_token
@@ -57,22 +57,9 @@ impl RefTokenService {
         Ok(())
     }
 
-    pub async fn sync_refresh_token(&self, user_id: UserId, token: &str) -> anyhow::Result<()> {
-        // sqlx::query!(
-        //     r#"
-        //     UPDATE refresh_token
-        //     SET token=$1, expires_at=$2, created_at=$3
-        //     WHERE user_id=$4;
-        //     "#,
-        //     token,
-        //     time::OffsetDateTime::now_utc() + time::Duration::days(30),
-        //     time::OffsetDateTime::now_utc(),
-        //     user_id.0
-        // )
-        // .execute(&self.db)
-        // .await?;
-        self.delete_token(user_id).await?;
-        self.create_token(user_id, token).await?;
+    pub async fn sync(&self, user_id: UserId, token: &str) -> anyhow::Result<()> {
+        self.delete(user_id).await?;
+        self.create(user_id, token).await?;
         Ok(())
     }
 }

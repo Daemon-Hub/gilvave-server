@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use uuid::{Error, Uuid};
 
 macro_rules! id_type {
     ($name:ident) => {
@@ -12,10 +12,37 @@ macro_rules! id_type {
             }
         }
 
-        impl From<String> for $name {
-            fn from(value: String) -> Self {
-                let uuid = uuid::Uuid::parse_str(&value).expect("Failed to parse UUID from string");
-                Self(uuid)
+        impl TryFrom<String> for $name {
+            type Error = Error;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                match Uuid::parse_str(&value) {
+                    Ok(uuid) => Ok(Self(uuid)),
+                    Err(e) => Err(e),
+                }
+            }
+        }
+
+        impl TryFrom<&str> for $name {
+            type Error = Error;
+
+            fn try_from(value: &str) -> Result<Self, Self::Error> {
+                match Uuid::parse_str(value) {
+                    Ok(uuid) => Ok(Self(uuid)),
+                    Err(e) => Err(e),
+                }
+            }
+        }
+
+        impl AsRef<Uuid> for $name {
+            fn as_ref(&self) -> &Uuid {
+                &self.0
+            }
+        }
+
+        impl From<Uuid> for $name {
+            fn from(value: Uuid) -> Self {
+                Self(value)
             }
         }
     };

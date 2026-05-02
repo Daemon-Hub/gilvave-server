@@ -36,7 +36,7 @@ pub async fn register(
 
     let user = state
         .user_service
-        .create_user(&body.username, &body.email, &body.password)
+        .create(&body.username, &body.email, &body.password)
         .await
         .unwrap();
 
@@ -64,12 +64,12 @@ pub async fn login(
         return Err(AppError::Unauthorized("Invalid password".to_string()));
     }
 
-    let access_token = create_jwt(&user.id.0.to_string()).unwrap();
+    let access_token = create_jwt(user.id).unwrap();
     let refresh_token = generate_refresh_token();
 
     state
         .ref_token_service
-        .sync_refresh_token(user.id, &refresh_token)
+        .sync(user.id, &refresh_token)
         .await?;
 
     Ok(Json(AuthTokensResponse {
@@ -84,18 +84,18 @@ pub async fn refresh_token(
 ) -> Result<Json<AuthTokensResponse>, AppError> {
     let user_id = state
         .ref_token_service
-        .get_token(&body.refresh_token)
+        .get(&body.refresh_token)
         .await
         .ok_or(AppError::Unauthorized(
             "Invalid or expired refresh token".to_string(),
         ))?;
 
-    let access_token = create_jwt(&user_id.0.to_string())?;
+    let access_token = create_jwt(user_id)?;
     let refresh_token = generate_refresh_token();
 
     state
         .ref_token_service
-        .sync_refresh_token(user_id, &refresh_token)
+        .sync(user_id, &refresh_token)
         .await?;
 
     Ok(Json(AuthTokensResponse {
@@ -104,7 +104,7 @@ pub async fn refresh_token(
     }))
 }
 
-pub async fn get_profile(AuthUser { user }: AuthUser) -> Json<UserProfileResponse> {
+pub async fn get_profile(AuthUser(user): AuthUser) -> Json<UserProfileResponse> {
     Json(UserProfileResponse {
         id: user.id,
         username: user.username,

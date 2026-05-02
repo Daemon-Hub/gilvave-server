@@ -5,19 +5,21 @@ use axum::{
 };
 
 pub enum AppError {
-    NotFound(String),
+    // NotFound(String),
     Unauthorized(String),
     BadRequest(String),
     InternalServerError(String),
+    Forbidden(String),
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
-            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
+            // AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             AppError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             AppError::InternalServerError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
         };
 
         (status, Json(serde_json::json!({"error": message}))).into_response()
