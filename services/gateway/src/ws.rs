@@ -11,7 +11,7 @@ use crate::dispatch_event;
 use crate::events::{ClientEvent, EventHandler, ServerEvent};
 use crate::state::AppState;
 
-use gilvave_core::ids::UserId;
+use gilvave_core::{ids::UserId, model::User};
 use gilvave_infra::security::auth::AuthUser;
 
 pub async fn ws_handler(
@@ -19,15 +19,15 @@ pub async fn ws_handler(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, user.id, state))
+    ws.on_upgrade(move |socket| handle_socket(socket, user, state))
 }
 
-pub async fn handle_socket(socket: WebSocket, user_id: UserId, state: AppState) {
-    let (mut sender, mut receiver) = socket.split();
+pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
+    let (mut sender, mut receiver) = ws.split();
 
     if let Err(e) = state
         .session
-        .set_user_online(user_id, &state.node_id.to_string())
+        .set_user_online(user.id, &state.node_id.to_string())
         .await
     {
         println!("{}", e);
@@ -37,10 +37,10 @@ pub async fn handle_socket(socket: WebSocket, user_id: UserId, state: AppState) 
 
     {
         let mut users = state.users.write().await;
-        users.insert(user_id, tx.clone());
+        users.insert(user.id, tx.clone());
         println!(
             "[WS] User {} connected. Total online: {}",
-            user_id.0,
+            user.id.0,
             users.len()
         );
     }
@@ -54,7 +54,7 @@ pub async fn handle_socket(socket: WebSocket, user_id: UserId, state: AppState) 
         .await
     {
         println!("[WS] Failed to send Hello: {}", e);
-        cleanup_user(user_id, &state).await.ok();
+        cleanup_user(user.id, &state).await.ok();
         return;
     }
 
@@ -65,7 +65,7 @@ pub async fn handle_socket(socket: WebSocket, user_id: UserId, state: AppState) 
         while let Some(Ok(msg)) = receiver.next().await {
             if let Ok(text) = msg.into_text() {
                 let mut sender = sender_recv.lock().await;
-                handle_event(text.to_string(), state.clone(), &mut sender).await;
+                handle_event(text.to_string(), state.clone(), user.clone(), &mut sender).await;
             }
         }
     };
@@ -82,11 +82,20 @@ pub async fn handle_socket(socket: WebSocket, user_id: UserId, state: AppState) 
     };
 
     tokio::select! {
-        _ = recv_task => { println!("[WS] Receiver task ended for user {}", user_id.0); },
-        _ = send_task => { println!("[WS] Sender task ended for user {}", user_id.0); },
+        _ = recv_task => { println!("[WS] Receiver task ended for user {}", user.id.0); },
+        _ = send_task => { println!("[WS] Sender task ended for user {}", user.id.0); },
     };
 
-    cleanup_user(user_id, &state).await.ok();
+    cleanup_user(user.id, &state).await.ok();
+}
+
+pub async fn handle_event(
+    text: String,
+    state: AppState,
+    user: User,
+    sender: &mut SplitSink<WebSocket, Message>,
+) {
+    dispatch_event!(&text, state, user, sender, [ClientEvent,]);
 }
 
 async fn cleanup_user(user_id: UserId, state: &AppState) -> anyhow::Result<()> {
@@ -94,12 +103,4 @@ async fn cleanup_user(user_id: UserId, state: &AppState) -> anyhow::Result<()> {
     state.session.remove_user(user_id).await?;
     println!("[WS] User {} cleaned up", user_id.0);
     Ok(())
-}
-
-pub async fn handle_event(
-    text: String,
-    state: AppState,
-    sender: &mut SplitSink<WebSocket, Message>,
-) {
-    dispatch_event!(&text, state, sender, [ClientEvent,]);
 }

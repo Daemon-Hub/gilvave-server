@@ -36,11 +36,11 @@ CREATE TABLE channels (
 -- Таблица сообщений
 CREATE TABLE messages (
     id UUID PRIMARY KEY,
-    channel_id UUID REFERENCES channels (id) ON DELETE CASCADE,
-    author_id UUID REFERENCES users (id) ON DELETE SET NULL, -- Если пользователь удален, сообщение сохраняется, но автор = null
+    channel_id UUID NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
+    author_id UUID REFERENCES users (id) ON DELETE SET NULL,
+    author_name VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Индексы

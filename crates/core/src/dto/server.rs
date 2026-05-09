@@ -1,5 +1,7 @@
-use crate::ids::*;
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
+
+use crate::ids::ServerId;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerView {
@@ -7,7 +9,7 @@ pub struct ServerView {
     pub name: String,
     pub icon_url: String,
     #[serde(with = "time::serde::rfc3339")]
-    pub created_at: time::OffsetDateTime,
+    pub created_at: OffsetDateTime,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

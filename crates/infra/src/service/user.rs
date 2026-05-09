@@ -39,7 +39,7 @@ impl UserService {
             r#"
             INSERT INTO users (id, username, email, password_hash)
             VALUES ($1, $2, $3, $4)
-            RETURNING id, username, email
+            RETURNING id, username, email;
             "#,
             UserId::default().0,
             username,

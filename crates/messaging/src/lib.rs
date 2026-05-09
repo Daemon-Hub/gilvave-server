@@ -1,6 +1,3 @@
-pub mod event;
-
-use anyhow::Result;
 use futures::stream::StreamExt;
 use lapin::{
     BasicProperties, Channel, Connection, ConnectionProperties, ExchangeKind,
@@ -12,6 +9,7 @@ use lapin::{
 };
 use serde::Serialize;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 use gilvave_settings::settings;
 
@@ -21,7 +19,7 @@ pub struct RabbitClient {
 }
 
 impl RabbitClient {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(node_id: &str) -> anyhow::Result<Self> {
         let conn =
             Connection::connect(settings!().rmq_url, ConnectionProperties::default()).await?;
 
@@ -36,11 +34,14 @@ impl RabbitClient {
             )
             .await?;
 
-        let queue_name = ShortString::from("gateway_events");
+        let queue_name = ShortString::from(format!("gateway_events_{node_id}"));
         channel
             .queue_declare(
                 queue_name.clone(),
-                QueueDeclareOptions::default(),
+                QueueDeclareOptions {
+                    auto_delete: true,
+                    ..Default::default()
+                },
                 FieldTable::default(),
             )
             .await?;
@@ -82,30 +83,38 @@ impl RabbitClient {
     }
 }
 
-pub async fn start_consumer(
-    channel: Arc<Channel>,
-    queue_name: &str,
-    consumer_tag: &str,
-) -> Result<()> {
+pub async fn start_consumer(channel: Arc<Channel>, queue_name: &str) -> mpsc::Receiver<String> {
+    let (tx, rx) = mpsc::channel::<String>(10000); // Буфер на 10к сообщений
+
     let mut consumer = channel
         .basic_consume(
             ShortString::from(queue_name),
-            ShortString::from(consumer_tag),
+            ShortString::from("consumer_tag"),
             BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await?;
+        .await
+        .unwrap();
 
-    while let Some(delivery_result) = consumer.next().await {
-        match delivery_result {
-            Ok(delivery) => {
-                let _data = std::str::from_utf8(&delivery.data)?;
-                // логика ...
-                delivery.ack(BasicAckOptions::default()).await?;
+    // Фоновая таска, которая читает сообщения из Rabbit и пушит их в mpsc канал
+    tokio::spawn(async move {
+        while let Some(delivery_result) = consumer.next().await {
+            match delivery_result {
+                Ok(delivery) => {
+                    match std::str::from_utf8(&delivery.data) {
+                        Ok(data) => {
+                            if tx.send(data.to_string()).await.is_err() {
+                                break;
+                            }
+                        }
+                        Err(_) => eprintln!("[RabbitMQ] Invalid UTF-8 received"),
+                    }
+                    delivery.ack(BasicAckOptions::default()).await.ok();
+                }
+                Err(error) => eprintln!("[RabbitMQ] Error in consumer: {:?}", error),
             }
-            Err(error) => eprintln!(" [!] Error in consumer: {:?}", error),
         }
-    }
+    });
 
-    Ok(())
+    rx
 }

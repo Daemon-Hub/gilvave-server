@@ -2,10 +2,11 @@ use axum::extract::ws::{Message, WebSocket};
 use futures::stream::SplitSink;
 
 use crate::state::AppState;
+use gilvave_core::model::User;
 
 #[async_trait::async_trait]
 pub trait EventHandler {
-    async fn handle(self, state: AppState, sender: &mut SplitSink<WebSocket, Message>);
+    async fn handle(self, state: AppState, user: User, sender: &mut SplitSink<WebSocket, Message>);
 }
 
 /// Макрос раскрывается в цепочку if let ... else if let ...
@@ -27,10 +28,10 @@ pub trait EventHandler {
 /// ```
 #[macro_export]
 macro_rules! dispatch_event {
-    ($text:expr, $state:expr, $sender:expr, [$($ty:ty),+ $(,)?]) => {
+    ($text:expr, $state:expr, $user:expr, $sender:expr, [$($ty:ty),+ $(,)?]) => {
         $(
             if let Ok(event) = serde_json::from_str::<$ty>($text) {
-                event.handle($state, $sender).await;
+                event.handle($state, $user, $sender).await;
                 return;
             }
         )+

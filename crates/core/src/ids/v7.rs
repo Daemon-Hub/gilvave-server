@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 use uuid::{Error, Uuid};
 
+#[allow(unused_imports)]
+use sqlx::encode::IsNull;
+#[allow(unused_imports)]
+use sqlx::postgres::PgValueRef;
+
 macro_rules! id_type {
     ($name:ident) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -43,6 +48,21 @@ macro_rules! id_type {
         impl From<Uuid> for $name {
             fn from(value: Uuid) -> Self {
                 Self(value)
+            }
+        }
+
+        impl sqlx::Type<sqlx::Postgres> for $name {
+            fn type_info() -> sqlx::postgres::PgTypeInfo {
+                <uuid::Uuid as sqlx::Type<sqlx::Postgres>>::type_info()
+            }
+        }
+
+        impl<'r> sqlx::Decode<'r, sqlx::Postgres> for $name {
+            fn decode(
+                value: PgValueRef<'r>,
+            ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+                let uuid = <uuid::Uuid as sqlx::Decode<'r, sqlx::Postgres>>::decode(value)?;
+                Ok(Self(uuid))
             }
         }
     };
