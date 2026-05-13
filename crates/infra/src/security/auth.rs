@@ -39,6 +39,7 @@ where
         let user = user_service
             .find_by_id(UserId(payload.sub))
             .await
+            .map_err(|_| (StatusCode::FORBIDDEN, "Error occurred while fetching user"))?
             .ok_or((StatusCode::FORBIDDEN, "User not found"))?;
 
         if !user.is_active {

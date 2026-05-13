@@ -35,7 +35,8 @@ impl UserService {
         email: &str,
         password: &str,
     ) -> anyhow::Result<RegisterResponse> {
-        let rec = sqlx::query!(
+        Ok(sqlx::query_as!(
+            RegisterResponse,
             r#"
             INSERT INTO users (id, username, email, password_hash)
             VALUES ($1, $2, $3, $4)
@@ -47,17 +48,12 @@ impl UserService {
             self.hash_password(&password)
         )
         .fetch_one(&self.db)
-        .await?;
-
-        Ok(RegisterResponse {
-            id: UserId(rec.id),
-            username: rec.username,
-            email: rec.email,
-        })
+        .await?)
     }
 
-    pub async fn find_by_id(&self, user_id: UserId) -> Option<User> {
-        if let Ok(Some(res)) = sqlx::query!(
+    pub async fn find_by_id(&self, user_id: UserId) -> anyhow::Result<Option<User>> {
+        Ok(sqlx::query_as!(
+            User,
             r#"
             SELECT * FROM users
             WHERE id = $1;
@@ -65,21 +61,12 @@ impl UserService {
             user_id.0
         )
         .fetch_optional(&self.db)
-        .await
-        {
-            return Some(User {
-                id: UserId(res.id),
-                username: res.username,
-                email: res.email,
-                password_hash: res.password_hash,
-                is_active: res.is_active,
-            });
-        }
-        None
+        .await?)
     }
 
-    pub async fn find_by_username(&self, username: &str) -> Option<User> {
-        if let Ok(Some(res)) = sqlx::query!(
+    pub async fn find_by_username(&self, username: &str) -> anyhow::Result<Option<User>> {
+        Ok(sqlx::query_as!(
+            User,
             r#"
             SELECT * FROM users
             WHERE username = $1;
@@ -87,21 +74,12 @@ impl UserService {
             username
         )
         .fetch_optional(&self.db)
-        .await
-        {
-            return Some(User {
-                id: UserId(res.id),
-                username: res.username,
-                email: res.email,
-                password_hash: res.password_hash,
-                is_active: res.is_active,
-            });
-        }
-        None
+        .await?)
     }
 
-    pub async fn find_by_email(&self, email: &str) -> Option<User> {
-        if let Ok(Some(res)) = sqlx::query!(
+    pub async fn find_by_email(&self, email: &str) -> anyhow::Result<Option<User>> {
+        Ok(sqlx::query_as!(
+            User,
             r#"
             SELECT * FROM users
             WHERE email = $1;
@@ -109,17 +87,7 @@ impl UserService {
             email
         )
         .fetch_optional(&self.db)
-        .await
-        {
-            return Some(User {
-                id: UserId(res.id),
-                username: res.username,
-                email: res.email,
-                password_hash: res.password_hash,
-                is_active: res.is_active,
-            });
-        }
-        None
+        .await?)
     }
 
     pub async fn is_token_blacklisted(&self, _jti: &uuid::Uuid) -> bool {

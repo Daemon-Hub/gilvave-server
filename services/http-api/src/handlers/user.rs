@@ -15,47 +15,43 @@ use crate::state::AppState;
 pub async fn register(
     State(state): State<AppState>,
     Json(body): Json<RegisterRequest>,
-) -> Json<RegisterResponse> {
-    if state
+) -> Result<Json<RegisterResponse>, AppError> {
+    state
         .user_service
         .find_by_email(&body.email)
-        .await
-        .is_some()
-    {
-        panic!("The user with this email address exists.");
-    }
+        .await?
+        .ok_or(AppError::Unauthorized(
+            "The user with this email address exists.".to_string(),
+        ))?;
 
-    if state
+    state
         .user_service
         .find_by_username(&body.username)
-        .await
-        .is_some()
-    {
-        panic!("The user with this username exists.");
-    }
+        .await?
+        .ok_or(AppError::Unauthorized(
+            "The user with this username exists.".to_string(),
+        ))?;
 
     let user = state
         .user_service
         .create(&body.username, &body.email, &body.password)
-        .await
-        .unwrap();
+        .await?;
 
-    Json(user)
+    Ok(Json(user))
 }
 
 pub async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginRequest>,
 ) -> Result<Json<AuthTokensResponse>, AppError> {
-    let user = state
-        .user_service
-        .find_by_email(&body.email)
-        .await
-        .ok_or_else(|| {
-            AppError::Unauthorized(
+    let user =
+        state
+            .user_service
+            .find_by_email(&body.email)
+            .await?
+            .ok_or(AppError::Unauthorized(
                 "The user with this email address has not been found!".to_string(),
-            )
-        })?;
+            ))?;
 
     if !state
         .user_service
