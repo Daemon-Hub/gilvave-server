@@ -21,3 +21,9 @@ pub struct MessageView {
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
 }
+
+#[derive(Deserialize)]
+pub struct GetHistoryInfo {
+    pub channel_id: ChannelId,
+    pub from: OffsetDateTime,
+}

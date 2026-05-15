@@ -30,7 +30,7 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
         .set_user_online(user.id, &state.node_id.to_string())
         .await
     {
-        println!("{}", e);
+        eprintln!("{}", e);
     }
 
     let (tx, mut rx) = mpsc::unbounded_channel::<ServerEvent>();
@@ -95,6 +95,7 @@ pub async fn handle_event(
     user: User,
     sender: &mut SplitSink<WebSocket, Message>,
 ) {
+    println!("{text}");
     dispatch_event!(&text, state, user, sender, [ClientEvent,]);
 }
 

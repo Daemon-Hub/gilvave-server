@@ -104,4 +104,29 @@ impl ServerService {
         .await
         .is_ok())
     }
+
+    pub async fn add_user(&self, info: JoinInfo) -> anyhow::Result<()> {
+        sqlx::query!(
+            r#"
+            INSERT INTO server_members (server_id, user_id)
+            VALUES ($1, $2);
+            "#,
+            info.server_id.0,
+            info.user_id.0,
+        )
+        .execute(&self.db)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_members(&self, server_id: ServerId) -> anyhow::Result<Vec<Member>> {
+        Ok(sqlx::query_as!(
+            Member,
+            r#"
+            SELECT user_id FROM server_members
+            WHERE server_id = $1;
+            "#,
+            server_id.0
+        ).fetch_all(&self.db).await?)
+    }
 }

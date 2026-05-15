@@ -1,5 +1,4 @@
 use axum::extract::FromRef;
-use gilvave_infra::service::MessageService;
 use sqlx::PgPool;
 use std::{
     collections::{HashMap, HashSet},
@@ -11,7 +10,7 @@ use uuid::Uuid;
 use crate::events::ServerEvent;
 use crate::service::SessionService;
 use gilvave_core::ids::{ChannelId, UserId};
-use gilvave_infra::service::user::UserService;
+use gilvave_infra::service::{MessageService, UserService};
 use gilvave_messaging::RabbitClient;
 
 type Tx = mpsc::UnboundedSender<ServerEvent>;

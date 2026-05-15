@@ -10,6 +10,7 @@ pub enum AppError {
     BadRequest(String),
     InternalServerError(String),
     Forbidden(String),
+    Conflict(String),
 }
 
 impl IntoResponse for AppError {
@@ -20,6 +21,7 @@ impl IntoResponse for AppError {
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             AppError::InternalServerError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
+            AppError::Conflict(msg) => (StatusCode::CONFLICT, msg),
         };
 
         (status, Json(serde_json::json!({"error": message}))).into_response()

@@ -8,13 +8,6 @@ pub struct RegisterRequest {
     pub password: String,
 }
 
-#[derive(Serialize)]
-pub struct RegisterResponse {
-    pub id: UserId,
-    pub username: String,
-    pub email: String,
-}
-
 #[derive(Deserialize)]
 pub struct LoginRequest {
     pub email: String,
@@ -33,7 +26,7 @@ pub struct RefreshTokenRequest {
 }
 
 #[derive(Serialize)]
-pub struct UserProfileResponse {
+pub struct UserView {
     pub id: UserId,
     pub username: String,
     pub email: String,

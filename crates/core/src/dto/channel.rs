@@ -25,7 +25,7 @@ pub struct PositionUpdate {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct View {
+pub struct ChannelView {
     pub id: ChannelId,
     pub name: String,
     pub r#type: ChannelType,

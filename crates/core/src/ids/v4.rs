@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use uuid::{Error, Uuid};
 
 macro_rules! id_type {
@@ -9,6 +10,12 @@ macro_rules! id_type {
         impl Default for $name {
             fn default() -> Self {
                 Self(Uuid::new_v4())
+            }
+        }
+
+        impl Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
             }
         }
 

@@ -12,9 +12,13 @@ pub struct ChannelService {
 }
 
 impl ChannelService {
-    pub async fn create(&self, server_id: ServerId, info: CreateInfo) -> anyhow::Result<View> {
+    pub async fn create(
+        &self,
+        server_id: ServerId,
+        info: CreateInfo,
+    ) -> anyhow::Result<ChannelView> {
         Ok(sqlx::query_as!(
-            View,
+            ChannelView,
             r#"
             INSERT INTO channels (
                 server_id,
@@ -47,9 +51,9 @@ impl ChannelService {
         server_id: ServerId,
         channel_id: ChannelId,
         name: NameUpdate,
-    ) -> anyhow::Result<View> {
+    ) -> anyhow::Result<ChannelView> {
         Ok(sqlx::query_as!(
-            View,
+            ChannelView,
             r#"
             UPDATE channels
             SET name = $1
@@ -69,9 +73,9 @@ impl ChannelService {
         server_id: ServerId,
         channel_id: ChannelId,
         position: PositionUpdate,
-    ) -> anyhow::Result<View> {
+    ) -> anyhow::Result<ChannelView> {
         Ok(sqlx::query_as!(
-            View,
+            ChannelView,
             r#"
             WITH shift AS (
             UPDATE channels
@@ -102,9 +106,12 @@ impl ChannelService {
         .await?)
     }
 
-    pub async fn get_server_channels(&self, server_id: ServerId) -> anyhow::Result<Vec<View>> {
+    pub async fn get_server_channels(
+        &self,
+        server_id: ServerId,
+    ) -> anyhow::Result<Vec<ChannelView>> {
         Ok(sqlx::query_as!(
-            View,
+            ChannelView,
             r#"
             SELECT id, name, type as "type: ChannelType", position
             FROM channels

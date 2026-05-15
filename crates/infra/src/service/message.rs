@@ -30,21 +30,20 @@ impl MessageService {
         Ok(res)
     }
 
-    // pub async fn get_history_by_time(&self, info: GetHistoryInfo) -> anyhow::Result<MessageView> {
-    //     let res = sqlx::query_as!(
-    //         MessageView,
-    //         r#"
-    //         INSERT INTO messages (channel_id, author_id, content, author_name)
-    //         VALUES ($1, $2, $3, $4)
-    //         RETURNING id, channel_id, author_id as "author_id: UserId", author_name, content, created_at;
-    //         "#,
-    //         info.channel_id.0,
-    //         info.author_id.0,
-    //         info.content,
-    //         info.author_name,
-    //     )
-    //     .fetch_one(&self.db)
-    //     .await?;
-    //     Ok(res)
-    // }
+    pub async fn get_history_by_time(&self, info: GetHistoryInfo) -> anyhow::Result<Vec<MessageView>> {
+        let res = sqlx::query_as!(
+            MessageView,
+            r#"
+            SELECT id, channel_id, author_id as "author_id: UserId", author_name, content, created_at 
+            FROM messages
+            WHERE channel_id = $1 AND created_at >= $2
+            LIMIT 20;
+            "#,
+            info.channel_id.0,
+            info.from
+        )
+        .fetch_all(&self.db)
+        .await?;
+        Ok(res)
+    }
 }

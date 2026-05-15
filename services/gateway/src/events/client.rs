@@ -6,7 +6,11 @@ use crate::{
     events::{BrokerEvent, EventHandler, ServerEvent},
     state::AppState,
 };
-use gilvave_core::{dto::message::CreateInfo, ids::ChannelId, model::User};
+use gilvave_core::{
+    dto::message::{CreateInfo, GetHistoryInfo},
+    ids::{ChannelId},
+    model::User,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op", content = "d")]
@@ -17,6 +21,17 @@ pub enum ClientEvent {
         channel_id: ChannelId,
         content: String,
     },
+    JoinChannel {
+        channel_id: ChannelId,
+    },
+    LeftChannel {
+        channel_id: ChannelId,
+    },
+    ChannelHistory {
+        channel_id: ChannelId,
+        #[serde(with = "time::serde::rfc3339")]
+        from: time::OffsetDateTime,
+    },
 }
 
 #[async_trait::async_trait]
@@ -24,9 +39,8 @@ impl EventHandler for ClientEvent {
     async fn handle(self, state: AppState, user: User, sender: &mut SplitSink<WebSocket, Message>) {
         match self {
             Self::Heartbeat => {
-                let ack = ServerEvent::HeartbeatAck;
-                let json = serde_json::to_string(&ack).unwrap();
-                let _ = sender.send(Message::Text(json.into())).await;
+                let json = serde_json::to_string(&ServerEvent::HeartbeatAck).unwrap();
+                _ = sender.send(Message::Text(json.into())).await;
             }
             Self::MessageCreate {
                 channel_id,
@@ -49,7 +63,7 @@ impl EventHandler for ClientEvent {
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
                             eprintln!("RabbitMQ publish error: {}", e);
-                            let _ = sender
+                            _ = sender
                                 .send(Message::Text(
                                     serde_json::to_string(&ServerEvent::Error {
                                         message: "Failed to broadcast".into(),
@@ -66,9 +80,45 @@ impl EventHandler for ClientEvent {
                             message: "Failed to send message".into(),
                         };
                         let json = serde_json::to_string(&error_event).unwrap();
-                        let _ = sender.send(Message::Text(json.into())).await;
+                        _ = sender.send(Message::Text(json.into())).await;
                     }
                 }
+            }
+            Self::JoinChannel { channel_id } => {
+                let mut channels = state.channels.write().await;
+                channels
+                    .entry(channel_id)
+                    .and_modify(|users| {
+                        users.insert(user.id);
+                    })
+                    .or_insert([user.id].into());
+                let json = serde_json::to_string(&ServerEvent::JoinSuccess).unwrap();
+                _ = sender.send(Message::Text(json.into())).await;
+                println!(
+                    "[WS] User {} joined to channel {channel_id}. Total online in channel: {}",
+                    user.id,
+                    channels.get(&channel_id).iter().len()
+                );
+            }
+            Self::LeftChannel { channel_id } => {
+                let mut channels = state.channels.write().await;
+                channels.entry(channel_id).and_modify(|users| {
+                    users.remove(&user.id);
+                    println!(
+                        "[WS] User {} left in channel {channel_id}. Total online in channel: {}",
+                        user.id,
+                        users.len()
+                    );
+                });
+            }
+            Self::ChannelHistory { channel_id, from } => {
+                let history = state
+                    .message_service
+                    .get_history_by_time(GetHistoryInfo { channel_id, from })
+                    .await
+                    .unwrap();
+                let json = serde_json::to_string(&ServerEvent::ChannelHistory(history)).unwrap();
+                _ = sender.send(Message::Text(json.into())).await;
             }
         }
     }

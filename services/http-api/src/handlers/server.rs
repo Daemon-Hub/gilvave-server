@@ -1,10 +1,10 @@
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::{Path, Query, State},
 };
 
 use crate::{errors::AppError, state::AppState};
-use gilvave_core::dto::server::*;
+use gilvave_core::{dto::server::*, ids::ServerId};
 use gilvave_infra::security::auth::AuthUser;
 
 pub async fn get_user_servers(
@@ -33,4 +33,37 @@ pub async fn create_server(
     Json(info): Json<ServerCreateInfo>,
 ) -> Result<Json<ServerView>, AppError> {
     Ok(Json(state.server_service.create(info, user.id).await?))
+}
+
+/*
+Если публичный сервер:
+    юзер нажал кнопку -> отправил ид сервера -> юзер добавился на сервер
+Если по ссылке приглашению:
+    юзер перешел по ссылке -> проверить валидность ссылки (например, секретного токена) ->
+    если секретный токен не истек или не удален -> добавить юзера
+Если личное приглашение:
+    админ выбрал юзера для добавления -> юзеру пришло личное приглашение ->
+    если юзер принял приглашение -> добавить юзера
+*/
+pub async fn join_public(
+    Path(server_id): Path<ServerId>,
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+) -> Result<(), AppError> {
+    state
+        .server_service
+        .add_user(JoinInfo {
+            server_id,
+            user_id: user.id,
+        })
+        .await?;
+    Ok(())
+}
+
+pub async fn get_members(
+    Path(server_id): Path<ServerId>,
+    State(state): State<AppState>,
+    AuthUser(_): AuthUser,
+) -> Result<Json<Vec<Member>>, AppError> {
+    Ok(Json(state.server_service.get_members(server_id).await?))
 }

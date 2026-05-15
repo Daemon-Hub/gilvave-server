@@ -4,7 +4,7 @@ use argon2::{
 };
 use sqlx::PgPool;
 
-use gilvave_core::{dto::user::RegisterResponse, ids::UserId, model::user::User};
+use gilvave_core::{ids::UserId, model::user::User};
 
 #[derive(Clone)]
 pub struct UserService {
@@ -29,26 +29,20 @@ impl UserService {
             .is_ok()
     }
 
-    pub async fn create(
-        &self,
-        username: &str,
-        email: &str,
-        password: &str,
-    ) -> anyhow::Result<RegisterResponse> {
-        Ok(sqlx::query_as!(
-            RegisterResponse,
+    pub async fn create(&self, username: &str, email: &str, password: &str) -> anyhow::Result<()> {
+        sqlx::query!(
             r#"
             INSERT INTO users (id, username, email, password_hash)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, username, email;
+            VALUES ($1, $2, $3, $4);
             "#,
             UserId::default().0,
             username,
             email,
-            self.hash_password(&password)
+            self.hash_password(&password),
         )
-        .fetch_one(&self.db)
-        .await?)
+        .execute(&self.db)
+        .await?;
+        Ok(())
     }
 
     pub async fn find_by_id(&self, user_id: UserId) -> anyhow::Result<Option<User>> {

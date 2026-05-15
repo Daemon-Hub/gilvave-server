@@ -5,7 +5,7 @@ use axum::{
 
 use crate::{errors::AppError, state::AppState};
 use gilvave_core::{
-    dto::channel::*,
+    dto::{channel::*, message::MessageView},
     ids::{ChannelId, ServerId, UserId},
 };
 use gilvave_infra::security::auth::AuthUser;
@@ -15,10 +15,10 @@ async fn with_channel_permissions<F, Fut>(
     user_id: UserId,
     path: (ServerId, ChannelId),
     action: F,
-) -> Result<View, AppError>
+) -> Result<ChannelView, AppError>
 where
     F: FnOnce(ServerId, ChannelId) -> Fut,
-    Fut: std::future::Future<Output = anyhow::Result<View>>,
+    Fut: std::future::Future<Output = anyhow::Result<ChannelView>>,
 {
     let (server_id, channel_id) = path;
 
@@ -40,7 +40,7 @@ where
 pub async fn get_all(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
-) -> Result<Json<Vec<View>>, AppError> {
+) -> Result<Json<Vec<ChannelView>>, AppError> {
     let res = state
         .channel_service
         .get_server_channels(server_id)
@@ -54,7 +54,7 @@ pub async fn create(
     State(state): State<AppState>,
     AuthUser(_): AuthUser,
     Json(info): Json<CreateInfo>,
-) -> Result<Json<View>, AppError> {
+) -> Result<Json<ChannelView>, AppError> {
     let res = state.channel_service.create(server_id, info).await?;
     Ok(Json(res))
 }
@@ -64,7 +64,7 @@ pub async fn update_name(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
     Json(name): Json<NameUpdate>,
-) -> Result<Json<View>, AppError> {
+) -> Result<Json<ChannelView>, AppError> {
     let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
         state
             .channel_service
@@ -80,7 +80,7 @@ pub async fn update_position(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
     Json(position): Json<PositionUpdate>,
-) -> Result<Json<View>, AppError> {
+) -> Result<Json<ChannelView>, AppError> {
     let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
         state
             .channel_service

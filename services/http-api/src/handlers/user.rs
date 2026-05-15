@@ -1,8 +1,8 @@
 use axum::{Json, extract::State};
 
 use gilvave_core::dto::user::{
-    AuthTokensResponse, LoginRequest, RefreshTokenRequest, RegisterRequest, RegisterResponse,
-    UserProfileResponse,
+    AuthTokensResponse, LoginRequest, RefreshTokenRequest, RegisterRequest,
+    UserView,
 };
 use gilvave_infra::{
     jwt::{create_jwt, generate_refresh_token},
@@ -15,43 +15,49 @@ use crate::state::AppState;
 pub async fn register(
     State(state): State<AppState>,
     Json(body): Json<RegisterRequest>,
-) -> Result<Json<RegisterResponse>, AppError> {
-    state
+) -> Result<(), AppError> {
+    if state
         .user_service
         .find_by_email(&body.email)
         .await?
-        .ok_or(AppError::Unauthorized(
+        .is_some()
+    {
+        return Err(AppError::Conflict(
             "The user with this email address exists.".to_string(),
-        ))?;
+        ));
+    }
 
-    state
+    if state
         .user_service
         .find_by_username(&body.username)
         .await?
-        .ok_or(AppError::Unauthorized(
+        .is_some()
+    {
+        return Err(AppError::Conflict(
             "The user with this username exists.".to_string(),
-        ))?;
+        ));
+    }
 
-    let user = state
+    state
         .user_service
         .create(&body.username, &body.email, &body.password)
         .await?;
 
-    Ok(Json(user))
+    Ok(())
 }
 
 pub async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginRequest>,
 ) -> Result<Json<AuthTokensResponse>, AppError> {
-    let user =
-        state
-            .user_service
-            .find_by_email(&body.email)
-            .await?
-            .ok_or(AppError::Unauthorized(
+    let user = match state.user_service.find_by_email(&body.email).await? {
+        Some(u) => u,
+        None => {
+            return Err(AppError::Unauthorized(
                 "The user with this email address has not been found!".to_string(),
-            ))?;
+            ));
+        }
+    };
 
     if !state
         .user_service
@@ -100,8 +106,8 @@ pub async fn refresh_token(
     }))
 }
 
-pub async fn get_profile(AuthUser(user): AuthUser) -> Json<UserProfileResponse> {
-    Json(UserProfileResponse {
+pub async fn get_profile(AuthUser(user): AuthUser) -> Json<UserView> {
+    Json(UserView {
         id: user.id,
         username: user.username,
         email: user.email,

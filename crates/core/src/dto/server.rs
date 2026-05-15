@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::ids::ServerId;
+use crate::ids::{ServerId, UserId};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerView {
@@ -22,4 +22,15 @@ pub struct ServerCreateInfo {
 #[derive(Deserialize)]
 pub struct ServerFilters {
     pub role: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct JoinInfo {
+    pub server_id: ServerId,
+    pub user_id: UserId,
+}
+
+#[derive(Serialize)]
+pub struct Member {
+    pub user_id: UserId,
 }
