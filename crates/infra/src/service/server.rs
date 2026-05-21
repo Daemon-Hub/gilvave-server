@@ -18,7 +18,7 @@ impl ServerService {
         info: ServerCreateInfo,
         owner_id: UserId,
     ) -> anyhow::Result<ServerView> {
-        Ok(sqlx::query_as!(
+        let server = sqlx::query_as!(
             ServerView,
             r#"
             INSERT INTO servers (name, owner_id, icon_url, is_public)
@@ -31,7 +31,13 @@ impl ServerService {
             info.is_public
         )
         .fetch_one(&self.db)
-        .await?)
+        .await?;
+        self.add_user(JoinInfo {
+            server_id: server.id,
+            user_id: owner_id,
+        })
+        .await?;
+        Ok(server)
     }
 
     pub async fn get_all_public(&self) -> anyhow::Result<Vec<ServerView>> {
