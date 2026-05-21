@@ -17,7 +17,6 @@ pub async fn get_user_servers(
         Some("member") => state.server_service.get_member(user.id).await?,
         _ => state.server_service.get_all_by_user(user.id).await?,
     };
-
     Ok(Json(servers))
 }
 

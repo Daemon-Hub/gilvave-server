@@ -30,7 +30,10 @@ impl MessageService {
         Ok(res)
     }
 
-    pub async fn get_history_by_time(&self, info: GetHistoryInfo) -> anyhow::Result<Vec<MessageView>> {
+    pub async fn get_history_by_time(
+        &self,
+        info: GetHistoryInfo,
+    ) -> anyhow::Result<Vec<MessageView>> {
         let res = sqlx::query_as!(
             MessageView,
             r#"

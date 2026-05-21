@@ -123,10 +123,13 @@ impl ServerService {
         Ok(sqlx::query_as!(
             Member,
             r#"
-            SELECT user_id FROM server_members
+            SELECT id as "user_id: UserId", username FROM users
+            JOIN server_members sm ON users.id = sm.user_id
             WHERE server_id = $1;
             "#,
             server_id.0
-        ).fetch_all(&self.db).await?)
+        )
+        .fetch_all(&self.db)
+        .await?)
     }
 }

@@ -5,7 +5,7 @@ use axum::{
 
 use crate::{errors::AppError, state::AppState};
 use gilvave_core::{
-    dto::{channel::*, message::MessageView},
+    dto::channel::*,
     ids::{ChannelId, ServerId, UserId},
 };
 use gilvave_infra::security::auth::AuthUser;

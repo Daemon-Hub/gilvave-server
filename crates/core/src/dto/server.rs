@@ -33,4 +33,5 @@ pub struct JoinInfo {
 #[derive(Serialize)]
 pub struct Member {
     pub user_id: UserId,
+    pub username: String,
 }

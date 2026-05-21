@@ -3,15 +3,15 @@ x-env: &env
     - .env
 
 services:
-  postgres:
-    <<: *env
-    image: postgres:16-alpine
-    container_name: gilvave-postgres
-    ports:
-      - ${POSTGRES_PORT}:${POSTGRES_PORT}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+  # postgres:
+  #   <<: *env
+  #   image: postgres:16-alpine
+  #   container_name: gilvave-postgres
+  #   ports:
+  #     - ${POSTGRES_PORT}:${POSTGRES_PORT}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
 
   redis:
     <<: *env
@@ -28,5 +28,6 @@ services:
       - ${RABBITMQ_DEFAULT_PORT}:${RABBITMQ_DEFAULT_PORT}
       - "15672:15672" # UI
 
-volumes:
-  postgres_data:
+
+# volumes:
+#   postgres_data:
