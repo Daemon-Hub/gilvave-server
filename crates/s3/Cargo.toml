@@ -1,0 +1,13 @@
+[package]
+name = "gilvave-s3"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+aws-config = "1"
+aws-sdk-s3 = "1"
+tokio.workspace = true
+anyhow.workspace = true
+
+gilvave-settings = { path = "../settings" }

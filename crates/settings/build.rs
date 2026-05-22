@@ -12,5 +12,8 @@ fn main() -> anyhow::Result<()> {
     if let Ok(redis_url) = std::env::var("REDIS_URL") {
         println!("cargo:rustc-env=REDIS_URL={}", redis_url);
     }
+    if let Ok(s3_url) = std::env::var("S3_URL") {
+        println!("cargo:rustc-env=S3_URL={}", s3_url);
+    }
     Ok(())
 }

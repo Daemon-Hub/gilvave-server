@@ -13,6 +13,9 @@ pub struct Settings {
     // Redis
     pub redis_url: &'static str,
 
+    // S3
+    pub s3_url: &'static str,
+
     // JWT
     pub access_token_expire_minutes: time::Duration,
     pub refresh_token_expire_days: time::Duration,
@@ -33,6 +36,7 @@ impl Default for Settings {
             database_url: std::env!("DATABASE_URL"),
             rmq_url: std::env!("RABBITMQ_DEFAULT_URL"),
             redis_url: std::env!("REDIS_URL"),
+            s3_url: std::env!("S3_URL"),
 
             access_token_expire_minutes: time::Duration::minutes(20),
             refresh_token_expire_days: time::Duration::days(30),

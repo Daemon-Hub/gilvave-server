@@ -6,6 +6,7 @@ members = [
     "crates/infra",
     "crates/messaging",
     "crates/settings",
+    "crates/s3",
 
     "services/gateway",
     "services/http-api",
