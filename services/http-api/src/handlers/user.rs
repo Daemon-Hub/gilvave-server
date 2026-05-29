@@ -1,28 +1,33 @@
-use axum::{Json, extract::State};
+use axum::{
+    Json,
+    extract::{Multipart, State},
+};
 
-use gilvave_core::dto::user::{
-    AuthTokensResponse, LoginRequest, RefreshTokenRequest, RegisterRequest,
-    UserView,
+use gilvave_core::{
+    dto::user::{
+        AuthTokensResponse, Avatar, AvatarUrl, LoginRequest, RefreshTokenRequest, RegisterRequest,
+        UpdateAvatarInfo, UserView,
+    },
+    error::CoreError,
 };
 use gilvave_infra::{
     jwt::{create_jwt, generate_refresh_token},
     security::auth::AuthUser,
 };
 
-use crate::errors::AppError;
 use crate::state::AppState;
 
 pub async fn register(
     State(state): State<AppState>,
     Json(body): Json<RegisterRequest>,
-) -> Result<(), AppError> {
+) -> Result<(), CoreError> {
     if state
         .user_service
         .find_by_email(&body.email)
         .await?
         .is_some()
     {
-        return Err(AppError::Conflict(
+        return Err(CoreError::Conflict(
             "The user with this email address exists.".to_string(),
         ));
     }
@@ -33,7 +38,7 @@ pub async fn register(
         .await?
         .is_some()
     {
-        return Err(AppError::Conflict(
+        return Err(CoreError::Conflict(
             "The user with this username exists.".to_string(),
         ));
     }
@@ -49,11 +54,11 @@ pub async fn register(
 pub async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginRequest>,
-) -> Result<Json<AuthTokensResponse>, AppError> {
+) -> Result<Json<AuthTokensResponse>, CoreError> {
     let user = match state.user_service.find_by_email(&body.email).await? {
         Some(u) => u,
         None => {
-            return Err(AppError::Unauthorized(
+            return Err(CoreError::Unauthorized(
                 "The user with this email address has not been found!".to_string(),
             ));
         }
@@ -63,7 +68,7 @@ pub async fn login(
         .user_service
         .verify_password(&user.password_hash, &body.password)
     {
-        return Err(AppError::Unauthorized("Invalid password".to_string()));
+        return Err(CoreError::Unauthorized("Invalid password".to_string()));
     }
 
     let access_token = create_jwt(user.id).unwrap();
@@ -83,12 +88,12 @@ pub async fn login(
 pub async fn refresh_token(
     State(state): State<AppState>,
     Json(body): Json<RefreshTokenRequest>,
-) -> Result<Json<AuthTokensResponse>, AppError> {
+) -> Result<Json<AuthTokensResponse>, CoreError> {
     let user_id = state
         .ref_token_service
         .get(&body.refresh_token)
         .await
-        .ok_or(AppError::Unauthorized(
+        .ok_or(CoreError::Unauthorized(
             "Invalid or expired refresh token".to_string(),
         ))?;
 
@@ -112,5 +117,51 @@ pub async fn get_profile(AuthUser(user): AuthUser) -> Json<UserView> {
         username: user.username,
         email: user.email,
         is_active: user.is_active,
+        avatar: user.avatar,
     })
+}
+
+pub async fn update_avatar(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    mut multipart: Multipart,
+) -> Result<Json<AvatarUrl>, CoreError> {
+    let avatar = if let Some(field) = multipart.next_field().await.unwrap_or(None)
+        && (field.name().unwrap_or("") == "avatar")
+    {
+        Avatar {
+            filename: field
+                .file_name()
+                .map(|f| f.to_string())
+                .unwrap_or_else(|| "avatar".to_string()),
+            bytes: match field.bytes().await {
+                Ok(data) => data,
+                Err(e) => {
+                    return Err(CoreError::BadRequest(format!("Failed to read file: {}", e)));
+                }
+            },
+        }
+    } else {
+        return Err(CoreError::BadRequest("Missing field 'avatar'".to_string()));
+    };
+
+    let (processed_bytes, mime_type) = state.user_service.process_avatar(&avatar)?;
+    let url = state
+        .s3
+        .send_static(
+            &format!("avatar/{}/{}.webp", user.id, uuid::Uuid::new_v4()),
+            processed_bytes.into(),
+            Some(&mime_type),
+        )
+        .await?;
+
+    state
+        .user_service
+        .update_avatar(UpdateAvatarInfo {
+            user_id: user.id,
+            url: url.to_owned(),
+        })
+        .await?;
+
+    Ok(Json(AvatarUrl { url }))
 }

@@ -11,13 +11,14 @@ tokio.workspace = true
 serde.workspace = true
 uuid.workspace = true
 anyhow.workspace = true
-tracing.workspace = true
-dotenvy.workspace = true
 argon2.workspace = true
 rand.workspace = true
 jsonwebtoken.workspace = true
 time.workspace = true
 base64 = "0.22.1"
+bytes.workspace = true
+image.workspace = true
+mime_guess.workspace = true
 
 gilvave-core = { path = "../core" }
 gilvave-settings = { path = "../settings" }

@@ -12,12 +12,12 @@ pub struct ServerView {
     pub created_at: OffsetDateTime,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ServerCreateInfo {
-    pub name: String,
-    pub icon_url: Option<String>,
-    pub is_public: bool,
-}
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct ServerCreateInfo {
+        pub name: String,
+        pub icon_url: Option<String>,
+        pub is_public: bool,
+    }
 
 #[derive(Deserialize)]
 pub struct ServerFilters {
@@ -31,7 +31,8 @@ pub struct JoinInfo {
 }
 
 #[derive(Serialize)]
-pub struct Member {
+pub struct MemberView {
     pub user_id: UserId,
     pub username: String,
+    pub avatar: String,
 }

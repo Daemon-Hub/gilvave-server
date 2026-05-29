@@ -1,5 +1,7 @@
-use crate::ids::UserId;
+use bytes::Bytes;
 use serde::{Deserialize, Serialize};
+
+use crate::ids::UserId;
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
@@ -31,4 +33,20 @@ pub struct UserView {
     pub username: String,
     pub email: String,
     pub is_active: bool,
+    pub avatar: String,
+}
+
+pub struct Avatar {
+    pub filename: String,
+    pub bytes: Bytes,
+}
+
+pub struct UpdateAvatarInfo {
+    pub user_id: UserId,
+    pub url: String,
+}
+
+#[derive(Serialize)]
+pub struct AvatarUrl {
+    pub url: String,
 }

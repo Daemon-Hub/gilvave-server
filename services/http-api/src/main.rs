@@ -1,4 +1,3 @@
-mod errors;
 mod handlers;
 mod routes;
 mod state;
@@ -22,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
     setup_settings();
     CryptoProvider::install_default(&DEFAULT_PROVIDER).unwrap();
 
-    let state = AppState::new(init_db().await?);
+    let state = AppState::new(init_db().await?).await;
 
     let app = routes::routes(state);
 

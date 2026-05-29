@@ -24,12 +24,12 @@ tokio = { version = "1.52.1", features = ["full"] }
 tokio-util = "0.7.18"
 
 # --- web ---
-axum = { version = "0.8.9", features = ["ws"] }
+axum = { version = "0.8.9", features = ["ws", "multipart"] }
 tower-http = { version = "0.6.8", features = ["trace", "fs"] }
 
 # --- serialization ---
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 
 # --- observability ---
 tracing = "0.1.44"
@@ -45,10 +45,12 @@ uuid = { version = "1.23.1", features = ["v4", "v7", "serde"] }
 anyhow = "1.0.102"
 validator = { version = "0.20", features = ["derive"] }
 dotenvy = "0.15.7"
-bytes = "1.11.1"
 time = { version = "0.3.47", features = ["serde"] }
 thiserror = "2.0.18"
 futures = "0.3.32"
+bytes = "1.11.1"
+image = "0.25.10"
+mime_guess = "2.0.5"
 
 # --- database ---
 sqlx = { version = "0.8.6", features = [
@@ -61,9 +63,9 @@ sqlx = { version = "0.8.6", features = [
 ] }
 
 # --- auth ---
-jsonwebtoken = { version = "10.3.0", features = ["default", "rust_crypto"] }
+jsonwebtoken = { version = "10.4.0", features = ["default", "rust_crypto"] }
 rand = "0.10.1"
 argon2 = "0.5.3"
 
 # --- allocator ---
-mimalloc = { version = "0.1", features = ["local_dynamic_tls"] }
+mimalloc = { version = "0.1.52", features = ["local_dynamic_tls"] }

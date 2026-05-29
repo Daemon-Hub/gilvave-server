@@ -44,6 +44,7 @@
         },
         // --- TERMINAL ---
         "terminal.integrated.defaultProfile.windows": "PowerShell",
+        "terminal.integrated.cwd": "${workspaceFolder: gilvave-server}",
         // --- ENV ---
         "dotenv.enableAutocloaking": false,
         "commentTranslate.hover.enabled": true,
@@ -93,7 +94,7 @@
                 "type": "shell",
                 "command": "wsl -d Ubuntu --exec sudo docker compose up -d",
                 "options": {
-                    "cwd": "${workspaceFolder}"
+                    "cwd": "${workspaceFolder: gilvave-server}"
                 },
                 "group": "build",
                 "isBackground": true

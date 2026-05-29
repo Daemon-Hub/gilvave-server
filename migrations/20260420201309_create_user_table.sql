@@ -4,5 +4,6 @@ CREATE TABLE users (
     username TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    is_active BOOLEAN DEFAULT true NOT NULL
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    avatar TEXT NOT NULL DEFAULT ''
 );

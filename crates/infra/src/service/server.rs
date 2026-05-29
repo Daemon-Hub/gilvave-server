@@ -83,13 +83,10 @@ impl ServerService {
     }
 
     pub async fn get_all_by_user(&self, user_id: UserId) -> anyhow::Result<Vec<ServerView>> {
-        let mut owned = self.get_owned(user_id).await.unwrap_or_default();
+        //let mut owned = self.get_owned(user_id).await.unwrap_or_default();
         let member = self.get_member(user_id).await.unwrap_or_default();
-        owned.extend(member);
-        // Может понадобится!
-        // Убирает дубликаты по ID сервера
-        // owned.dedup_by(|a, b| a.id == b.id);
-        Ok(owned)
+        //owned.extend(member);
+        Ok(member)
     }
 
     pub async fn is_user_owned(
@@ -125,11 +122,11 @@ impl ServerService {
         Ok(())
     }
 
-    pub async fn get_members(&self, server_id: ServerId) -> anyhow::Result<Vec<Member>> {
+    pub async fn get_members(&self, server_id: ServerId) -> anyhow::Result<Vec<MemberView>> {
         Ok(sqlx::query_as!(
-            Member,
+            MemberView,
             r#"
-            SELECT id as "user_id: UserId", username FROM users
+            SELECT id as "user_id: UserId", username, avatar FROM users
             JOIN server_members sm ON users.id = sm.user_id
             WHERE server_id = $1;
             "#,

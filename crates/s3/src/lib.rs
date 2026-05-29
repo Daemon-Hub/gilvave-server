@@ -1,39 +1,66 @@
-use aws_config::{BehaviorVersion, meta::region::RegionProviderChain};
+use aws_config::{BehaviorVersion, defaults, meta::region::RegionProviderChain};
+use aws_credential_types::Credentials;
 use aws_sdk_s3::{
     Client,
+    config::Builder as S3ConfigBuilder,
     primitives::{AggregatedBytes, ByteStream},
 };
 
 use gilvave_settings::settings;
 
+#[derive(Clone)]
 pub struct S3 {
     client: Client,
 }
 
 impl S3 {
     pub async fn new() -> Self {
-        let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
-        let config = aws_config::defaults(BehaviorVersion::latest())
-            .region(region_provider)
+        let credentials = Credentials::new(
+            settings!().s3_access_key,
+            settings!().s3_secret_key,
+            None,
+            None,
+            "seaweedfs-provider",
+        );
+
+        let base_config = defaults(BehaviorVersion::latest())
+            .region(RegionProviderChain::default_provider().or_else("us-east-1"))
             .endpoint_url(settings!().s3_url)
+            .credentials_provider(credentials)
             .load()
             .await;
 
+        let s3_config = S3ConfigBuilder::from(&base_config)
+            .force_path_style(true)
+            .build();
+
         Self {
-            client: Client::new(&config),
+            client: Client::from_conf(s3_config),
         }
     }
 
-    /// Загружает объект в хранилище
-    async fn send(&self, bucket: &str, key: &str, body: ByteStream) -> anyhow::Result<()> {
-        self.client
-            .put_object()
-            .bucket(bucket)
-            .key(key)
-            .body(body)
-            .send()
-            .await?;
+    /// Создает бакет, если его не существует
+    pub async fn create_bucket(&self, bucket: &str) -> anyhow::Result<()> {
+        self.client.create_bucket().bucket(bucket).send().await?;
         Ok(())
+    }
+
+    /// Загружает объект в хранилище
+    async fn send(
+        &self,
+        bucket: &str,
+        key: &str,
+        body: ByteStream,
+        content_type: Option<&str>,
+    ) -> anyhow::Result<String> {
+        let mut req = self.client.put_object().bucket(bucket).key(key).body(body);
+
+        if let Some(ct) = content_type {
+            req = req.content_type(ct);
+        }
+
+        req.send().await?;
+        Ok(format!("{}/{}/{}", settings!().s3_url, bucket, key))
     }
 
     /// Скачивает объект из хранилища
@@ -50,8 +77,28 @@ impl S3 {
     }
 
     /// Загружает статический объект (аватарки, иконки, смайлики и т.д.) в хранилище
-    pub async fn send_static(&self, key: &str, body: ByteStream) -> anyhow::Result<()> {
-        self.send("static", key, body).await
+    pub async fn send_static(
+        &self,
+        key: &str,
+        body: ByteStream,
+        content_type: Option<&str>,
+    ) -> anyhow::Result<String> {
+        self.send("static", key, body, content_type).await
+    }
+
+    /// Загружает изображение (картинки, скриншоты, мемы) в хранилище
+    pub async fn send_image(&self, key: &str, body: ByteStream) -> anyhow::Result<String> {
+        self.send("images", key, body, None).await
+    }
+
+    /// Загружает видео в хранилище
+    pub async fn send_video(&self, key: &str, body: ByteStream) -> anyhow::Result<String> {
+        self.send("videos", key, body, None).await
+    }
+
+    /// Загружает файл (документы, архивы, логи) в хранилище
+    pub async fn send_file(&self, key: &str, body: ByteStream) -> anyhow::Result<String> {
+        self.send("files", key, body, None).await
     }
 
     /// Скачивает статический объект (аватарки, иконки, смайлики и т.д.) из хранилища
@@ -59,29 +106,14 @@ impl S3 {
         self.get("static", key).await
     }
 
-    /// Загружает изображение (картинки, скриншоты, мемы) в хранилище
-    pub async fn send_image(&self, key: &str, body: ByteStream) -> anyhow::Result<()> {
-        self.send("images", key, body).await
-    }
-
     /// Скачивает изображение (картинки, скриншоты, мемы) из хранилища
     pub async fn get_image(&self, key: &str) -> anyhow::Result<AggregatedBytes> {
         self.get("images", key).await
     }
 
-    /// Загружает видео в хранилище
-    pub async fn send_video(&self, key: &str, body: ByteStream) -> anyhow::Result<()> {
-        self.send("videos", key, body).await
-    }
-
     /// Скачивает видео из хранилища
     pub async fn get_video(&self, key: &str) -> anyhow::Result<AggregatedBytes> {
         self.get("videos", key).await
-    }
-
-    /// Загружает файл (документы, архивы, логи) в хранилище
-    pub async fn send_file(&self, key: &str, body: ByteStream) -> anyhow::Result<()> {
-        self.send("files", key, body).await
     }
 
     /// Скачивает файл (документы, архивы, логи) из хранилища

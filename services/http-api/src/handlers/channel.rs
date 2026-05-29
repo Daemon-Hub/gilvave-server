@@ -3,9 +3,10 @@ use axum::{
     extract::{Path, State},
 };
 
-use crate::{errors::AppError, state::AppState};
+use crate::state::AppState;
 use gilvave_core::{
     dto::channel::*,
+    error::CoreError,
     ids::{ChannelId, ServerId, UserId},
 };
 use gilvave_infra::security::auth::AuthUser;
@@ -15,7 +16,7 @@ async fn with_channel_permissions<F, Fut>(
     user_id: UserId,
     path: (ServerId, ChannelId),
     action: F,
-) -> Result<ChannelView, AppError>
+) -> Result<ChannelView, CoreError>
 where
     F: FnOnce(ServerId, ChannelId) -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<ChannelView>>,
@@ -26,10 +27,10 @@ where
         .server_service
         .is_user_owned(user_id, server_id)
         .await
-        .map_err(|_| AppError::InternalServerError("Database error".to_string()))?;
+        .map_err(|_| CoreError::InternalServerError("Database error".to_string()))?;
 
     if !is_owned {
-        return Err(AppError::Forbidden(
+        return Err(CoreError::Forbidden(
             "You do not own this server".to_string(),
         ));
     }
@@ -40,12 +41,12 @@ where
 pub async fn get_all(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
-) -> Result<Json<Vec<ChannelView>>, AppError> {
+) -> Result<Json<Vec<ChannelView>>, CoreError> {
     let res = state
         .channel_service
         .get_server_channels(server_id)
         .await
-        .map_err(|_| AppError::BadRequest("Error with get channels".to_string()))?;
+        .map_err(|_| CoreError::BadRequest("Error with get channels".to_string()))?;
     Ok(Json(res))
 }
 
@@ -54,7 +55,7 @@ pub async fn create(
     State(state): State<AppState>,
     AuthUser(_): AuthUser,
     Json(info): Json<CreateInfo>,
-) -> Result<Json<ChannelView>, AppError> {
+) -> Result<Json<ChannelView>, CoreError> {
     let res = state.channel_service.create(server_id, info).await?;
     Ok(Json(res))
 }
@@ -64,7 +65,7 @@ pub async fn update_name(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
     Json(name): Json<NameUpdate>,
-) -> Result<Json<ChannelView>, AppError> {
+) -> Result<Json<ChannelView>, CoreError> {
     let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
         state
             .channel_service
@@ -80,7 +81,7 @@ pub async fn update_position(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
     Json(position): Json<PositionUpdate>,
-) -> Result<Json<ChannelView>, AppError> {
+) -> Result<Json<ChannelView>, CoreError> {
     let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
         state
             .channel_service

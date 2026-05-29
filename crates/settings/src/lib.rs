@@ -15,6 +15,8 @@ pub struct Settings {
 
     // S3
     pub s3_url: &'static str,
+    pub s3_access_key: &'static str,
+    pub s3_secret_key: &'static str,
 
     // JWT
     pub access_token_expire_minutes: time::Duration,
@@ -37,7 +39,8 @@ impl Default for Settings {
             rmq_url: std::env!("RABBITMQ_DEFAULT_URL"),
             redis_url: std::env!("REDIS_URL"),
             s3_url: std::env!("S3_URL"),
-
+            s3_access_key: std::env!("S3_ACCESS_KEY"),
+            s3_secret_key: std::env!("S3_SECRET_KEY"),
             access_token_expire_minutes: time::Duration::minutes(20),
             refresh_token_expire_days: time::Duration::days(30),
         }

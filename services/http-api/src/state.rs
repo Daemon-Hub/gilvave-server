@@ -2,6 +2,7 @@ use axum::extract::FromRef;
 use sqlx::PgPool;
 
 use gilvave_infra::service::*;
+use gilvave_s3::S3;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -9,15 +10,17 @@ pub struct AppState {
     pub ref_token_service: RefTokenService,
     pub server_service: ServerService,
     pub channel_service: ChannelService,
+    pub s3: S3,
 }
 
 impl AppState {
-    pub fn new(db: PgPool) -> Self {
+    pub async fn new(db: PgPool) -> Self {
         Self {
             user_service: UserService { db: db.clone() },
             ref_token_service: RefTokenService { db: db.clone() },
             server_service: ServerService { db: db.clone() },
             channel_service: ChannelService { db: db.clone() },
+            s3: S3::new().await,
         }
     }
 }
