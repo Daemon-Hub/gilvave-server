@@ -9,6 +9,7 @@ pub fn routes(state: AppState) -> Router {
     Router::new()
         .route("/register", post(register))
         .route("/login", post(login))
+        .route("/logout", post(logout))
         .route("/refresh", post(refresh_token))
         .route("/me", get(get_profile))
         .route("/me/avatar", patch(update_avatar))

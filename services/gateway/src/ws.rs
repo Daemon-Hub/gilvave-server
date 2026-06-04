@@ -46,7 +46,7 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
     }
 
     let hello = ServerEvent::Hello {
-        heartbeat_interval: 30000,
+        heartbeat_interval: 60000,
     };
 
     if let Err(e) = sender

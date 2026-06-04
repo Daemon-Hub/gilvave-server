@@ -25,9 +25,8 @@ pub struct Settings {
 
 impl Settings {
     /// Возвращает время жизни access токена согласно установленным настройкам
-    pub fn access_token_expire(&self) -> usize {
+    pub fn access_token_expire(&self) -> i64 {
         (time::OffsetDateTime::now_utc() + self.access_token_expire_minutes).unix_timestamp()
-            as usize
     }
 }
 

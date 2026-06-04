@@ -7,7 +7,6 @@ rust-version.workspace = true
 [dependencies]
 serde.workspace = true
 uuid.workspace = true
-thiserror.workspace = true
 validator.workspace = true
 time.workspace = true
 sqlx.workspace = true

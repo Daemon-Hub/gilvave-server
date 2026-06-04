@@ -1,12 +1,13 @@
 use axum::{
     Json,
     extract::{Multipart, State},
+    http::header::HeaderMap,
 };
 
 use gilvave_core::{
     dto::user::{
-        AuthTokensResponse, Avatar, AvatarUrl, LoginRequest, RefreshTokenRequest, RegisterRequest,
-        UpdateAvatarInfo, UserView,
+        AuthTokensResponse, Avatar, AvatarUrl, BlacklistInfo, LoginRequest, RefreshTokenRequest,
+        RegisterRequest, UpdateAvatarInfo, UserView,
     },
     error::CoreError,
 };
@@ -83,6 +84,31 @@ pub async fn login(
         access_token,
         refresh_token,
     }))
+}
+
+pub async fn logout(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    header: HeaderMap,
+) -> Result<(), CoreError> {
+    state.ref_token_service.delete(user.id).await?;
+    let token = String::from(
+        header
+            .get("authorization")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .strip_prefix("Bearer ")
+            .unwrap(),
+    );
+    state
+        .user_service
+        .blacklist_token(BlacklistInfo {
+            token,
+            user_id: user.id,
+        })
+        .await?;
+    Ok(())
 }
 
 pub async fn refresh_token(

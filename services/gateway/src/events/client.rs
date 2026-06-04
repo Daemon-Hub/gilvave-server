@@ -8,7 +8,7 @@ use crate::{
 };
 use gilvave_core::{
     dto::message::{CreateInfo, GetHistoryInfo},
-    ids::{ChannelId},
+    ids::ChannelId,
     model::User,
 };
 

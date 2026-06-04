@@ -1,10 +1,10 @@
 use axum::{
     extract::{FromRef, FromRequestParts},
-    http::{StatusCode, header, request::Parts},
+    http::{header, request::Parts},
 };
 
 use crate::{jwt::verify_jwt, service::user::UserService};
-use gilvave_core::{ids::UserId, model::User};
+use gilvave_core::{error::CoreError, ids::UserId, model::User};
 
 #[derive(Clone)]
 pub struct AuthUser(pub User);
@@ -14,36 +14,41 @@ where
     S: Send + Sync,
     UserService: FromRef<S>,
 {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = CoreError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let auth_header = parts
             .headers
             .get(header::AUTHORIZATION)
             .and_then(|header| header.to_str().ok())
-            .ok_or((StatusCode::UNAUTHORIZED, "Missing authorization header"))?;
+            .ok_or(CoreError::Unauthorized(
+                "Missing authorization header".to_string(),
+            ))?;
 
-        let token = auth_header.strip_prefix("Bearer ").ok_or((
-            StatusCode::UNAUTHORIZED,
-            "Invalid authorization header format",
-        ))?;
+        let token = auth_header
+            .strip_prefix("Bearer ")
+            .ok_or(CoreError::Unauthorized(
+                "Invalid authorization header format".to_string(),
+            ))?;
 
-        let payload = verify_jwt(token).map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token"))?;
+        let payload =
+            verify_jwt(token).map_err(|_| CoreError::Unauthorized("Invalid token".to_string()))?;
 
         let user_service = UserService::from_ref(state);
 
-        if user_service.is_token_blacklisted(&payload.jti).await {
-            return Err((StatusCode::UNAUTHORIZED, "Token is blacklisted"));
+        let is_blacklisted = user_service.is_token_blacklisted(&payload.jti).await?;
+        if is_blacklisted {
+            return Err(CoreError::Unauthorized("Token is blacklisted".to_string()));
         }
 
         let user = user_service
             .find_by_id(UserId(payload.sub))
             .await
-            .map_err(|_| (StatusCode::FORBIDDEN, "Error occurred while fetching user"))?
-            .ok_or((StatusCode::FORBIDDEN, "User not found"))?;
+            .map_err(|_| CoreError::Forbidden("Error occurred while fetching user".to_string()))?
+            .ok_or(CoreError::Forbidden("User not found".to_string()))?;
 
         if !user.is_active {
-            return Err((StatusCode::FORBIDDEN, "User is inactive"));
+            return Err(CoreError::Unauthorized("User is inactive".to_string()));
         }
 
         Ok(Self(user))

@@ -50,3 +50,8 @@ pub struct UpdateAvatarInfo {
 pub struct AvatarUrl {
     pub url: String,
 }
+
+pub struct BlacklistInfo {
+    pub token: String,
+    pub user_id: UserId,
+}

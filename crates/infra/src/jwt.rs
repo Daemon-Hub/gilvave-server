@@ -10,7 +10,7 @@ use gilvave_settings::settings;
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
     pub sub: Uuid,
-    pub exp: usize,
+    pub exp: i64,
     pub jti: Uuid,
 }
 

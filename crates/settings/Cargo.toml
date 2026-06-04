@@ -6,11 +6,10 @@ rust-version.workspace = true
 
 [dependencies]
 serde.workspace = true
-dotenvy.workspace = true
 anyhow.workspace = true
 time.workspace = true
 
 
 [build-dependencies]
-dotenvy.workspace = true
+dotenvy = "0.15.7"
 anyhow.workspace = true

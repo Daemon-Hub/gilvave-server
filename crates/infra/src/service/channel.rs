@@ -31,7 +31,8 @@ impl ChannelService {
                     (
                         SELECT max(position)
                         FROM channels
-                        WHERE server_id = $1
+                        WHERE server_id = $1 
+                          AND type = $3
                     ),
                     0
                 ) + 1

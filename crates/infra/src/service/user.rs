@@ -6,13 +6,16 @@ use bytes::Bytes;
 use image::ImageFormat;
 use sqlx::PgPool;
 use std::io::Cursor;
+use time::OffsetDateTime;
 
 use gilvave_core::{
-    dto::user::{Avatar, UpdateAvatarInfo},
+    dto::user::{Avatar, BlacklistInfo, UpdateAvatarInfo},
     error::CoreError,
     ids::UserId,
     model::user::User,
 };
+
+use crate::jwt::verify_jwt;
 
 #[derive(Clone)]
 pub struct UserService {
@@ -106,7 +109,7 @@ impl UserService {
         Ok(())
     }
 
-    /// Обрабатывает изображение: проверяет размер, формат, сжимает
+    /// Обрабатывает изображение: проверяет размер, формат и сжимает в WebP
     pub fn process_avatar(&self, avatar: &Avatar) -> Result<(Bytes, String), CoreError> {
         // Проверяем размер не более 5 MB
         if avatar.bytes.len() > 5 * 1024 * 1024 {
@@ -176,7 +179,33 @@ impl UserService {
         Ok((Bytes::from(output_bytes), mime_type))
     }
 
-    pub async fn is_token_blacklisted(&self, _jti: &uuid::Uuid) -> bool {
-        false
+    pub async fn blacklist_token(&self, info: BlacklistInfo) -> anyhow::Result<()> {
+        let claims = verify_jwt(&info.token).unwrap();
+        let exp = OffsetDateTime::from_unix_timestamp(claims.exp).unwrap();
+        sqlx::query!(
+            r#"
+            INSERT INTO token_blacklist (jti, user_id, expires_at)
+            VALUES ($1, $2, $3);
+            "#,
+            claims.jti,
+            info.user_id.0,
+            exp
+        )
+        .execute(&self.db)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn is_token_blacklisted(&self, jti: &uuid::Uuid) -> anyhow::Result<bool> {
+        let res = sqlx::query!(
+            r#"
+            SELECT id FROM token_blacklist
+            WHERE jti = $1;
+            "#,
+            jti
+        )
+        .fetch_optional(&self.db)
+        .await?;
+        Ok(res.is_some())
     }
 }

@@ -44,9 +44,7 @@ tracing-subscriber = { version = "0.3.23", features = [
 uuid = { version = "1.23.1", features = ["v4", "v7", "serde"] }
 anyhow = "1.0.102"
 validator = { version = "0.20", features = ["derive"] }
-dotenvy = "0.15.7"
 time = { version = "0.3.47", features = ["serde"] }
-thiserror = "2.0.18"
 futures = "0.3.32"
 bytes = "1.11.1"
 image = "0.25.10"
