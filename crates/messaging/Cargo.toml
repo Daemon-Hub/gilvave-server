@@ -9,7 +9,7 @@ lapin = "4.5.0"
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-anyhow.workspace = true
 futures.workspace = true
+tracing.workspace = true
 
 gilvave-settings = { path = "../settings" }

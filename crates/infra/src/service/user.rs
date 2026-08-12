@@ -4,22 +4,20 @@ use argon2::{
 };
 use bytes::Bytes;
 use image::ImageFormat;
-use sqlx::PgPool;
-use std::io::Cursor;
+use std::{io::Cursor, sync::Arc};
 use time::OffsetDateTime;
 
 use gilvave_core::{
-    dto::user::{Avatar, BlacklistInfo, UpdateAvatarInfo},
-    error::CoreError,
+    dto::user::{Avatar, BlacklistInfo, UpdateAvatarInfo, User},
+    error::*,
     ids::UserId,
-    model::user::User,
 };
 
-use crate::jwt::verify_jwt;
+use crate::{jwt::verify_jwt, db::Database};
 
 #[derive(Clone)]
 pub struct UserService {
-    pub db: PgPool,
+    pub db: Arc<Database>,
 }
 
 impl UserService {
@@ -40,72 +38,84 @@ impl UserService {
             .is_ok()
     }
 
-    pub async fn create(&self, username: &str, email: &str, password: &str) -> anyhow::Result<()> {
-        sqlx::query!(
-            r#"
-            INSERT INTO users (id, username, email, password_hash)
-            VALUES ($1, $2, $3, $4);
-            "#,
-            UserId::default().0,
-            username,
-            email,
-            self.hash_password(&password),
-        )
-        .execute(&self.db)
-        .await?;
+    pub async fn create(
+        &self,
+        username: &str,
+        email: &str,
+        password: &str,
+    ) -> Result<(), DatabaseError> {
+        self.db
+            .execute(
+                r#"
+                INSERT INTO users (id, username, email, password_hash)
+                VALUES ($1, $2, $3, $4);
+                "#,
+                &[
+                    &UserId::default().0,
+                    &username,
+                    &email,
+                    &self.hash_password(password),
+                ],
+            )
+            .await?;
         Ok(())
     }
 
-    pub async fn find_by_id(&self, user_id: UserId) -> anyhow::Result<Option<User>> {
-        Ok(sqlx::query_as!(
-            User,
-            r#"
-            SELECT * FROM users
-            WHERE id = $1;
-            "#,
-            user_id.0
-        )
-        .fetch_optional(&self.db)
-        .await?)
+    pub async fn find_by_id(&self, user_id: UserId) -> Result<Option<User>, DatabaseError> {
+        let row = self
+            .db
+            .query_opt(
+                r#"
+                SELECT * FROM users
+                WHERE id = $1;
+                "#,
+                &[&user_id.0],
+            )
+            .await?;
+
+        row.map(|r| User::from_row(&r)).transpose()
     }
 
-    pub async fn find_by_username(&self, username: &str) -> anyhow::Result<Option<User>> {
-        Ok(sqlx::query_as!(
-            User,
-            r#"
-            SELECT * FROM users
-            WHERE username = $1;
-            "#,
-            username
-        )
-        .fetch_optional(&self.db)
-        .await?)
+    pub async fn find_by_username(&self, username: &str) -> Result<Option<User>, DatabaseError> {
+        let row = self
+            .db
+            .query_opt(
+                r#"
+                SELECT * FROM users
+                WHERE username = $1;
+                "#,
+                &[&username],
+            )
+            .await?;
+
+        row.map(|r| User::from_row(&r)).transpose()
     }
 
-    pub async fn find_by_email(&self, email: &str) -> anyhow::Result<Option<User>> {
-        Ok(sqlx::query_as!(
-            User,
-            r#"
-            SELECT * FROM users
-            WHERE email = $1;
-            "#,
-            email
-        )
-        .fetch_optional(&self.db)
-        .await?)
+    pub async fn find_by_email(&self, email: &str) -> Result<Option<User>, DatabaseError> {
+        let row = self
+            .db
+            .query_opt(
+                r#"
+                SELECT * FROM users
+                WHERE email = $1;
+                "#,
+                &[&email],
+            )
+            .await?;
+
+        row.map(|r| User::from_row(&r)).transpose()
     }
 
-    pub async fn update_avatar(&self, info: UpdateAvatarInfo) -> anyhow::Result<()> {
-        sqlx::query!(
-            r#"
-            UPDATE users SET avatar = $2
-            WHERE id = $1;
-            "#,
-            info.user_id.0,
-            info.url,
-        )
-        .execute(&self.db)
-        .await?;
+    pub async fn update_avatar(&self, info: UpdateAvatarInfo) -> Result<(), DatabaseError> {
+        self.db
+            .execute(
+                r#"
+                UPDATE users SET avatar = $2
+                WHERE id = $1;
+                "#,
+                &[&info.user_id.0, &info.url],
+            )
+            .await?;
         Ok(())
     }
 
@@ -179,33 +189,34 @@ impl UserService {
         Ok((Bytes::from(output_bytes), mime_type))
     }
 
-    pub async fn blacklist_token(&self, info: BlacklistInfo) -> anyhow::Result<()> {
+    pub async fn blacklist_token(&self, info: BlacklistInfo) -> Result<(), DatabaseError> {
         let claims = verify_jwt(&info.token).unwrap();
         let exp = OffsetDateTime::from_unix_timestamp(claims.exp).unwrap();
-        sqlx::query!(
-            r#"
-            INSERT INTO token_blacklist (jti, user_id, expires_at)
-            VALUES ($1, $2, $3);
-            "#,
-            claims.jti,
-            info.user_id.0,
-            exp
-        )
-        .execute(&self.db)
-        .await?;
+
+        self.db
+            .execute(
+                r#"
+                INSERT INTO token_blacklist (jti, user_id, expires_at)
+                VALUES ($1, $2, $3);
+                "#,
+                &[&claims.jti, &info.user_id.0, &exp],
+            )
+            .await?;
         Ok(())
     }
 
-    pub async fn is_token_blacklisted(&self, jti: &uuid::Uuid) -> anyhow::Result<bool> {
-        let res = sqlx::query!(
-            r#"
-            SELECT id FROM token_blacklist
-            WHERE jti = $1;
-            "#,
-            jti
-        )
-        .fetch_optional(&self.db)
-        .await?;
-        Ok(res.is_some())
+    pub async fn is_token_blacklisted(&self, jti: &uuid::Uuid) -> Result<bool, DatabaseError> {
+        let row = self
+            .db
+            .query_opt(
+                r#"
+                SELECT id FROM token_blacklist
+                WHERE jti = $1;
+                "#,
+                &[jti],
+            )
+            .await?;
+
+        Ok(row.is_some())
     }
 }

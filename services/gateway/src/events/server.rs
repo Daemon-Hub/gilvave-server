@@ -7,9 +7,10 @@ use gilvave_core::dto::message::MessageView;
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ServerEvent {
     HeartbeatAck,
-    Hello { heartbeat_interval: u64 },
+    Hello,
     Error { message: String },
     MessageNew(MessageView),
     JoinSuccess,
-    ChannelHistory(Vec<MessageView>),
+    ChannelHistoryBefore(Vec<MessageView>),
+    ChannelHistoryAfter(Vec<MessageView>),
 }

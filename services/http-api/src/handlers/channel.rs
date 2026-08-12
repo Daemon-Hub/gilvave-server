@@ -6,7 +6,7 @@ use axum::{
 use crate::state::AppState;
 use gilvave_core::{
     dto::channel::*,
-    error::CoreError,
+    error::{CoreError, DatabaseError},
     ids::{ChannelId, ServerId, UserId},
 };
 use gilvave_infra::security::auth::AuthUser;
@@ -19,15 +19,14 @@ async fn with_channel_permissions<F, Fut>(
 ) -> Result<ChannelView, CoreError>
 where
     F: FnOnce(ServerId, ChannelId) -> Fut,
-    Fut: std::future::Future<Output = anyhow::Result<ChannelView>>,
+    Fut: std::future::Future<Output = Result<ChannelView, DatabaseError>>,
 {
     let (server_id, channel_id) = path;
 
     let is_owned = state
         .server_service
         .is_user_owned(user_id, server_id)
-        .await
-        .map_err(|_| CoreError::InternalServerError("Database error".to_string()))?;
+        .await?;
 
     if !is_owned {
         return Err(CoreError::Forbidden(
@@ -42,12 +41,9 @@ pub async fn get_all(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<ChannelView>>, CoreError> {
-    let res = state
-        .channel_service
-        .get_server_channels(server_id)
-        .await
-        .map_err(|_| CoreError::BadRequest("Error with get channels".to_string()))?;
-    Ok(Json(res))
+    Ok(Json(
+        state.channel_service.get_server_channels(server_id).await?,
+    ))
 }
 
 pub async fn create(
@@ -56,8 +52,7 @@ pub async fn create(
     AuthUser(_): AuthUser,
     Json(info): Json<CreateInfo>,
 ) -> Result<Json<ChannelView>, CoreError> {
-    let res = state.channel_service.create(server_id, info).await?;
-    Ok(Json(res))
+    Ok(Json(state.channel_service.create(server_id, info).await?))
 }
 
 pub async fn update_name(

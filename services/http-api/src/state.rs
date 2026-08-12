@@ -1,7 +1,7 @@
 use axum::extract::FromRef;
-use sqlx::PgPool;
+use std::sync::Arc;
 
-use gilvave_infra::service::*;
+use gilvave_infra::{db::Database, service::*};
 use gilvave_s3::S3;
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn new(db: PgPool) -> Self {
+    pub async fn new(db: Arc<Database>) -> Self {
         Self {
             user_service: UserService { db: db.clone() },
             ref_token_service: RefTokenService { db: db.clone() },

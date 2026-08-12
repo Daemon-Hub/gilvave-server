@@ -1,15 +1,15 @@
-use sqlx::PgPool;
+use std::sync::Arc;
 
+use crate::db::Database;
 use gilvave_core::{
     dto::server::*,
+    error::DatabaseError,
     ids::{ServerId, UserId},
 };
 
-const ICON_URL_DEFAULT: &str = "http://cdn.gilvave.ru/i/123";
-
 #[derive(Clone)]
 pub struct ServerService {
-    pub db: PgPool,
+    pub db: Arc<Database>,
 }
 
 impl ServerService {
@@ -17,72 +17,80 @@ impl ServerService {
         &self,
         info: ServerCreateInfo,
         owner_id: UserId,
-    ) -> anyhow::Result<ServerView> {
-        let server = sqlx::query_as!(
-            ServerView,
-            r#"
-            INSERT INTO servers (name, owner_id, icon_url, is_public)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, name, icon_url, created_at;
-            "#,
-            info.name,
-            owner_id.0,
-            info.icon_url.unwrap_or(ICON_URL_DEFAULT.into()),
-            info.is_public
-        )
-        .fetch_one(&self.db)
-        .await?;
+    ) -> Result<ServerView, DatabaseError> {
+        let row = self
+            .db
+            .query_one(
+                r#"
+                INSERT INTO servers (name, owner_id, icon_url, is_public)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id, name, icon_url, created_at;
+                "#,
+                &[&info.name, &owner_id.0, &info.icon_url, &info.is_public],
+            )
+            .await?;
+
+        let server = ServerView::from_row(&row)?;
+
         self.add_user(JoinInfo {
             server_id: server.id,
             user_id: owner_id,
         })
         .await?;
+
         Ok(server)
     }
 
-    pub async fn get_all_public(&self) -> anyhow::Result<Vec<ServerView>> {
-        Ok(sqlx::query_as!(
-            ServerView,
-            r#"
-            SELECT id, name, icon_url, created_at
-            FROM servers
-            WHERE is_public = true; 
-            "#
-        )
-        .fetch_all(&self.db)
-        .await?)
+    pub async fn get_all_public(&self) -> Result<Vec<ServerView>, DatabaseError> {
+        self.db
+            .query(
+                r#"
+                SELECT id, name, icon_url, created_at
+                FROM servers
+                WHERE is_public = true; 
+                "#,
+                &[],
+            )
+            .await?
+            .iter()
+            .map(ServerView::from_row)
+            .collect::<Result<Vec<_>, _>>()
     }
 
-    pub async fn get_owned(&self, user_id: UserId) -> anyhow::Result<Vec<ServerView>> {
-        Ok(sqlx::query_as!(
-            ServerView,
-            r#"
-            SELECT id, name, icon_url, created_at
-            FROM servers
-            WHERE owner_id = $1; 
-            "#,
-            user_id.0
-        )
-        .fetch_all(&self.db)
-        .await?)
+    pub async fn get_owned(&self, user_id: UserId) -> Result<Vec<ServerView>, DatabaseError> {
+        self.db
+            .query(
+                r#"
+                SELECT id, name, icon_url, created_at
+                FROM servers
+                WHERE owner_id = $1; 
+                "#,
+                &[&user_id.0],
+            )
+            .await?
+            .iter()
+            .map(ServerView::from_row)
+            .collect::<Result<Vec<_>, _>>()
     }
 
-    pub async fn get_member(&self, user_id: UserId) -> anyhow::Result<Vec<ServerView>> {
-        Ok(sqlx::query_as!(
-            ServerView,
-            r#"
-            SELECT s.id, s.name, s.icon_url, s.created_at
-            FROM servers s
-            JOIN server_members sm ON sm.server_id = s.id
-            WHERE sm.user_id = $1; 
-            "#,
-            user_id.0
-        )
-        .fetch_all(&self.db)
-        .await?)
+    pub async fn get_member(&self, user_id: UserId) -> Result<Vec<ServerView>, DatabaseError> {
+        self.db
+            .query(
+                r#"
+                SELECT s.id, s.name, s.icon_url, s.created_at
+                FROM servers s
+                JOIN server_members sm ON sm.server_id = s.id
+                WHERE sm.user_id = $1; 
+                "#,
+                &[&user_id.0],
+            )
+            .await?
+            .iter()
+            .map(ServerView::from_row)
+            .collect::<Result<Vec<_>, _>>()
     }
 
-    pub async fn get_all_by_user(&self, user_id: UserId) -> anyhow::Result<Vec<ServerView>> {
+    pub async fn get_all_by_user(&self, user_id: UserId) -> Result<Vec<ServerView>, DatabaseError> {
         //let mut owned = self.get_owned(user_id).await.unwrap_or_default();
         let member = self.get_member(user_id).await.unwrap_or_default();
         //owned.extend(member);
@@ -93,46 +101,48 @@ impl ServerService {
         &self,
         user_id: UserId,
         server_id: ServerId,
-    ) -> anyhow::Result<bool> {
-        Ok(sqlx::query!(
-            r#"
-            SELECT name
-            FROM servers
-            WHERE id = $1 AND owner_id = $2; 
-            "#,
-            server_id.0,
-            user_id.0
-        )
-        .fetch_one(&self.db)
-        .await
-        .is_ok())
+    ) -> Result<bool, DatabaseError> {
+        let row = self
+            .db
+            .query_opt(
+                r#"
+                SELECT 1
+                FROM servers
+                WHERE id = $1 AND owner_id = $2; 
+                "#,
+                &[&server_id.0, &user_id.0],
+            )
+            .await?;
+
+        Ok(row.is_some())
     }
 
-    pub async fn add_user(&self, info: JoinInfo) -> anyhow::Result<()> {
-        sqlx::query!(
-            r#"
-            INSERT INTO server_members (server_id, user_id)
-            VALUES ($1, $2);
-            "#,
-            info.server_id.0,
-            info.user_id.0,
-        )
-        .execute(&self.db)
-        .await?;
+    pub async fn add_user(&self, info: JoinInfo) -> Result<(), DatabaseError> {
+        self.db
+            .execute(
+                r#"
+                INSERT INTO server_members (server_id, user_id)
+                VALUES ($1, $2);
+                "#,
+                &[&info.server_id.0, &info.user_id.0],
+            )
+            .await?;
         Ok(())
     }
 
-    pub async fn get_members(&self, server_id: ServerId) -> anyhow::Result<Vec<MemberView>> {
-        Ok(sqlx::query_as!(
-            MemberView,
-            r#"
-            SELECT id as "user_id: UserId", username, avatar FROM users
-            JOIN server_members sm ON users.id = sm.user_id
-            WHERE server_id = $1;
-            "#,
-            server_id.0
-        )
-        .fetch_all(&self.db)
-        .await?)
+    pub async fn get_members(&self, server_id: ServerId) -> Result<Vec<MemberView>, DatabaseError> {
+        self.db
+            .query(
+                r#"
+                SELECT id, username, avatar FROM users
+                JOIN server_members sm ON users.id = sm.user_id
+                WHERE sm.server_id = $1;
+                "#,
+                &[&server_id.0],
+            )
+            .await?
+            .iter()
+            .map(MemberView::from_row)
+            .collect::<Result<Vec<_>, _>>()
     }
 }

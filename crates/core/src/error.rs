@@ -41,8 +41,41 @@ impl IntoResponse for CoreError {
     }
 }
 
-impl From<anyhow::Error> for CoreError {
-    fn from(err: anyhow::Error) -> Self {
+impl From<DatabaseError> for CoreError {
+    fn from(err: DatabaseError) -> Self {
         CoreError::InternalServerError(err.to_string())
+    }
+}
+
+pub enum DatabaseError {
+    Pool(deadpool_postgres::PoolError),
+    Postgres(tokio_postgres::Error),
+}
+
+impl From<deadpool_postgres::PoolError> for DatabaseError {
+    fn from(e: deadpool_postgres::PoolError) -> Self {
+        Self::Pool(e)
+    }
+}
+
+impl From<tokio_postgres::Error> for DatabaseError {
+    fn from(e: tokio_postgres::Error) -> Self {
+        Self::Postgres(e)
+    }
+}
+
+impl IntoResponse for DatabaseError {
+    fn into_response(self) -> Response {
+        tracing::error!("[DB] Request failed: {self}");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+impl std::fmt::Display for DatabaseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DatabaseError::Pool(e) => write!(f, "Database pool error: {e}"),
+            DatabaseError::Postgres(e) => write!(f, "PostgreSQL error: {e}"),
+        }
     }
 }

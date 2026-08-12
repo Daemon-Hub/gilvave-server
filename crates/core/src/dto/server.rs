@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::ids::{ServerId, UserId};
+use crate::{
+    from_row,
+    ids::{ServerId, UserId},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerView {
@@ -12,12 +15,12 @@ pub struct ServerView {
     pub created_at: OffsetDateTime,
 }
 
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct ServerCreateInfo {
-        pub name: String,
-        pub icon_url: Option<String>,
-        pub is_public: bool,
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ServerCreateInfo {
+    pub name: String,
+    pub icon_url: Option<String>,
+    pub is_public: bool,
+}
 
 #[derive(Deserialize)]
 pub struct ServerFilters {
@@ -36,3 +39,6 @@ pub struct MemberView {
     pub username: String,
     pub avatar: String,
 }
+
+from_row!(ServerView, id, name, icon_url, created_at);
+from_row!(MemberView, user_id, username, avatar);

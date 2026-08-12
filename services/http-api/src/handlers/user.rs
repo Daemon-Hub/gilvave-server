@@ -123,7 +123,8 @@ pub async fn refresh_token(
             "Invalid or expired refresh token".to_string(),
         ))?;
 
-    let access_token = create_jwt(user_id)?;
+    let access_token =
+        create_jwt(user_id).map_err(|e| CoreError::InternalServerError(e.to_string()))?;
     let refresh_token = generate_refresh_token();
 
     state
@@ -179,7 +180,8 @@ pub async fn update_avatar(
             processed_bytes.into(),
             Some(&mime_type),
         )
-        .await?;
+        .await
+        .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
 
     state
         .user_service

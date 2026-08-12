@@ -4,7 +4,7 @@ use axum::{
 };
 
 use crate::{jwt::verify_jwt, service::user::UserService};
-use gilvave_core::{error::CoreError, ids::UserId, model::User};
+use gilvave_core::{dto::user::User, error::CoreError, ids::UserId};
 
 #[derive(Clone)]
 pub struct AuthUser(pub User);
@@ -36,7 +36,14 @@ where
 
         let user_service = UserService::from_ref(state);
 
-        let is_blacklisted = user_service.is_token_blacklisted(&payload.jti).await?;
+        let is_blacklisted = user_service
+            .is_token_blacklisted(&payload.jti)
+            .await
+            .map_err(|_| {
+                CoreError::InternalServerError(
+                    "Error occurred while checking token blacklist".to_string(),
+                )
+            })?;
         if is_blacklisted {
             return Err(CoreError::Unauthorized("Token is blacklisted".to_string()));
         }
@@ -44,7 +51,7 @@ where
         let user = user_service
             .find_by_id(UserId(payload.sub))
             .await
-            .map_err(|_| CoreError::Forbidden("Error occurred while fetching user".to_string()))?
+            .map_err(|_| CoreError::InternalServerError("Error occurred while fetching user".to_string()))?
             .ok_or(CoreError::Forbidden("User not found".to_string()))?;
 
         if !user.is_active {

@@ -40,7 +40,7 @@ impl S3 {
     }
 
     /// Создает бакет, если его не существует
-    pub async fn create_bucket(&self, bucket: &str) -> anyhow::Result<()> {
+    pub async fn create_bucket(&self, bucket: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.client.create_bucket().bucket(bucket).send().await?;
         Ok(())
     }
@@ -52,7 +52,7 @@ impl S3 {
         key: &str,
         body: ByteStream,
         content_type: Option<&str>,
-    ) -> anyhow::Result<String> {
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let mut req = self.client.put_object().bucket(bucket).key(key).body(body);
 
         if let Some(ct) = content_type {
@@ -64,7 +64,11 @@ impl S3 {
     }
 
     /// Скачивает объект из хранилища
-    async fn get(&self, bucket: &str, key: &str) -> anyhow::Result<AggregatedBytes> {
+    async fn get(
+        &self,
+        bucket: &str,
+        key: &str,
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
         let resp = self
             .client
             .get_object()
@@ -82,42 +86,63 @@ impl S3 {
         key: &str,
         body: ByteStream,
         content_type: Option<&str>,
-    ) -> anyhow::Result<String> {
+    ) -> Result<String, Box<dyn std::error::Error>> {
         self.send("static", key, body, content_type).await
     }
 
     /// Загружает изображение (картинки, скриншоты, мемы) в хранилище
-    pub async fn send_image(&self, key: &str, body: ByteStream) -> anyhow::Result<String> {
+    pub async fn send_image(
+        &self,
+        key: &str,
+        body: ByteStream,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         self.send("images", key, body, None).await
     }
 
     /// Загружает видео в хранилище
-    pub async fn send_video(&self, key: &str, body: ByteStream) -> anyhow::Result<String> {
+    pub async fn send_video(
+        &self,
+        key: &str,
+        body: ByteStream,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         self.send("videos", key, body, None).await
     }
 
     /// Загружает файл (документы, архивы, логи) в хранилище
-    pub async fn send_file(&self, key: &str, body: ByteStream) -> anyhow::Result<String> {
+    pub async fn send_file(
+        &self,
+        key: &str,
+        body: ByteStream,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         self.send("files", key, body, None).await
     }
 
     /// Скачивает статический объект (аватарки, иконки, смайлики и т.д.) из хранилища
-    pub async fn get_static(&self, key: &str) -> anyhow::Result<AggregatedBytes> {
+    pub async fn get_static(
+        &self,
+        key: &str,
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
         self.get("static", key).await
     }
 
     /// Скачивает изображение (картинки, скриншоты, мемы) из хранилища
-    pub async fn get_image(&self, key: &str) -> anyhow::Result<AggregatedBytes> {
+    pub async fn get_image(
+        &self,
+        key: &str,
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
         self.get("images", key).await
     }
 
     /// Скачивает видео из хранилища
-    pub async fn get_video(&self, key: &str) -> anyhow::Result<AggregatedBytes> {
+    pub async fn get_video(
+        &self,
+        key: &str,
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
         self.get("videos", key).await
     }
 
     /// Скачивает файл (документы, архивы, логи) из хранилища
-    pub async fn get_file(&self, key: &str) -> anyhow::Result<AggregatedBytes> {
+    pub async fn get_file(&self, key: &str) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
         self.get("files", key).await
     }
 }

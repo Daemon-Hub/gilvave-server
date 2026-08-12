@@ -11,7 +11,7 @@ use crate::dispatch_event;
 use crate::events::{ClientEvent, EventHandler, ServerEvent};
 use crate::state::AppState;
 
-use gilvave_core::{ids::UserId, model::User};
+use gilvave_core::{dto::user::User, ids::UserId};
 use gilvave_infra::security::auth::AuthUser;
 
 pub async fn ws_handler(
@@ -30,7 +30,7 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
         .set_user_online(user.id, &state.node_id.to_string())
         .await
     {
-        eprintln!("{}", e);
+        tracing::error!("[Redis] Failed to set user online: {}", e);
     }
 
     let (tx, mut rx) = mpsc::unbounded_channel::<ServerEvent>();
@@ -38,22 +38,20 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
     {
         let mut users = state.users.write().await;
         users.insert(user.id, tx.clone());
-        println!(
+        tracing::info!(
             "[WS] User {} connected. Total online: {}",
             user.id.0,
             users.len()
         );
     }
 
-    let hello = ServerEvent::Hello {
-        heartbeat_interval: 60000,
-    };
+    let hello = ServerEvent::Hello;
 
     if let Err(e) = sender
         .send(Message::Text(serde_json::to_string(&hello).unwrap().into()))
         .await
     {
-        println!("[WS] Failed to send Hello: {}", e);
+        tracing::error!("[WS] Failed to send Hello: {}", e);
         cleanup_user(user.id, &state).await.ok();
         return;
     }
@@ -82,8 +80,8 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
     };
 
     tokio::select! {
-        _ = recv_task => { println!("[WS] Receiver task ended for user {}", user.id.0); },
-        _ = send_task => { println!("[WS] Sender task ended for user {}", user.id.0); },
+        _ = recv_task => { tracing::info!("[WS] Receiver task ended for user {}", user.id.0); },
+        _ = send_task => { tracing::info!("[WS] Sender task ended for user {}", user.id.0); },
     };
 
     cleanup_user(user.id, &state).await.ok();
@@ -95,13 +93,23 @@ pub async fn handle_event(
     user: User,
     sender: &mut SplitSink<WebSocket, Message>,
 ) {
-    println!("{text}");
     dispatch_event!(&text, state, user, sender, [ClientEvent,]);
 }
 
-async fn cleanup_user(user_id: UserId, state: &AppState) -> anyhow::Result<()> {
+async fn cleanup_user(
+    user_id: UserId,
+    state: &AppState,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     state.users.write().await.remove(&user_id);
+    state
+        .channels
+        .write()
+        .await
+        .iter_mut()
+        .for_each(|(_, users)| {
+            users.remove(&user_id);
+        });
     state.session.remove_user(user_id).await?;
-    println!("[WS] User {} cleaned up", user_id.0);
+    tracing::info!("[WS] User {} cleaned up", user_id.0);
     Ok(())
 }

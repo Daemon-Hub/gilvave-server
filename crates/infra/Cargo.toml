@@ -6,19 +6,19 @@ rust-version.workspace = true
 
 [dependencies]
 axum.workspace = true
-sqlx.workspace = true
 tokio.workspace = true
 serde.workspace = true
 uuid.workspace = true
-anyhow.workspace = true
 argon2.workspace = true
-rand.workspace = true
+bytes.workspace = true
 jsonwebtoken.workspace = true
 time.workspace = true
-base64 = "0.22.1"
-bytes.workspace = true
+tracing.workspace = true
+base64 = "0.23.1"
 image.workspace = true
-mime_guess.workspace = true
+tokio-postgres.workspace = true
+deadpool-postgres.workspace = true
+refinery = { version = "0.9.2", features = ["tokio-postgres"] }
 
 gilvave-core = { path = "../core" }
 gilvave-settings = { path = "../settings" }

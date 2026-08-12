@@ -7,17 +7,13 @@ rust-version.workspace = true
 [dependencies]
 axum.workspace = true
 tokio.workspace = true
-sqlx.workspace = true
-anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 jsonwebtoken.workspace = true
-serde_json.workspace = true
 mimalloc.workspace = true
 uuid.workspace = true
 
 gilvave-core = { path = "../../crates/core" }
 gilvave-infra = { path = "../../crates/infra" }
-gilvave-messaging = { path = "../../crates/messaging" }
 gilvave-s3 = { path = "../../crates/s3" }
 gilvave-settings = { path = "../../crates/settings" }

@@ -1,4 +1,4 @@
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
     if let Ok(secret) = std::env::var("SECRET") {
         println!("{secret}");

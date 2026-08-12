@@ -19,7 +19,7 @@ pub struct RabbitClient {
 }
 
 impl RabbitClient {
-    pub async fn new(node_id: &str) -> anyhow::Result<Self> {
+    pub async fn new(node_id: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let conn =
             Connection::connect(settings!().rmq_url, ConnectionProperties::default()).await?;
 
@@ -65,7 +65,10 @@ impl RabbitClient {
         Arc::clone(&self.channel)
     }
 
-    pub async fn publish<T: Serialize>(&self, payload: &T) -> anyhow::Result<()> {
+    pub async fn publish<T: Serialize>(
+        &self,
+        payload: &T,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let data = serde_json::to_vec(payload)?;
 
         self.get_channel()
@@ -107,11 +110,11 @@ pub async fn start_consumer(channel: Arc<Channel>, queue_name: &str) -> mpsc::Re
                                 break;
                             }
                         }
-                        Err(_) => eprintln!("[RabbitMQ] Invalid UTF-8 received"),
+                        Err(_) => tracing::error!("[RabbitMQ] Invalid UTF-8 received"),
                     }
                     delivery.ack(BasicAckOptions::default()).await.ok();
                 }
-                Err(error) => eprintln!("[RabbitMQ] Error in consumer: {:?}", error),
+                Err(error) => tracing::error!("[RabbitMQ] Error in consumer: {:?}", error),
             }
         }
     });

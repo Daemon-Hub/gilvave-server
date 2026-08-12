@@ -1,5 +1,4 @@
 use axum::extract::FromRef;
-use sqlx::PgPool;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -10,7 +9,10 @@ use uuid::Uuid;
 use crate::events::ServerEvent;
 use crate::service::SessionService;
 use gilvave_core::ids::{ChannelId, UserId};
-use gilvave_infra::service::{MessageService, UserService};
+use gilvave_infra::{
+    db::Database,
+    service::{MessageService, UserService},
+};
 use gilvave_messaging::RabbitClient;
 
 type Tx = mpsc::UnboundedSender<ServerEvent>;
@@ -33,7 +35,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn new(db: PgPool) -> Self {
+    pub async fn new(db: Arc<Database>) -> Self {
         let node_id = Uuid::new_v4();
         Self {
             node_id,

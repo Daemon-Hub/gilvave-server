@@ -2,10 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use uuid::{Error, Uuid};
 
-#[allow(unused_imports)]
-use sqlx::encode::IsNull;
-#[allow(unused_imports)]
-use sqlx::postgres::PgValueRef;
+use tokio_postgres::types::{FromSql, ToSql, IsNull, Type};
+use bytes::BytesMut;
 
 macro_rules! id_type {
     ($name:ident) => {
@@ -58,18 +56,43 @@ macro_rules! id_type {
             }
         }
 
-        impl sqlx::Type<sqlx::Postgres> for $name {
-            fn type_info() -> sqlx::postgres::PgTypeInfo {
-                <uuid::Uuid as sqlx::Type<sqlx::Postgres>>::type_info()
+        // ===== TOKIO-POSTGRES IMPLEMENTATIONS =====
+        impl ToSql for $name {
+            fn to_sql(
+                &self,
+                ty: &Type,
+                out: &mut BytesMut,
+            ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>>
+            where
+                Self: Sized,
+            {
+                <Uuid as ToSql>::to_sql(&self.0, ty, out)
+            }
+
+            fn accepts(ty: &Type) -> bool {
+                <Uuid as ToSql>::accepts(ty)
+            }
+
+            fn to_sql_checked(
+                &self,
+                ty: &Type,
+                out: &mut BytesMut,
+            ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+                <Uuid as ToSql>::to_sql_checked(&self.0, ty, out)
             }
         }
 
-        impl<'r> sqlx::Decode<'r, sqlx::Postgres> for $name {
-            fn decode(
-                value: PgValueRef<'r>,
-            ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-                let uuid = <uuid::Uuid as sqlx::Decode<'r, sqlx::Postgres>>::decode(value)?;
+        impl<'a> FromSql<'a> for $name {
+            fn from_sql(
+                ty: &Type,
+                raw: &'a [u8],
+            ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+                let uuid = <Uuid as FromSql>::from_sql(ty, raw)?;
                 Ok(Self(uuid))
+            }
+
+            fn accepts(ty: &Type) -> bool {
+                <Uuid as FromSql>::accepts(ty)
             }
         }
     };

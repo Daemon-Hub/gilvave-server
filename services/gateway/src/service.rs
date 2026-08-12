@@ -1,7 +1,8 @@
-use gilvave_core::ids::UserId;
-use gilvave_settings::settings;
 use redis::{AsyncTypedCommands, Client};
 use std::sync::Arc;
+
+use gilvave_core::ids::UserId;
+use gilvave_settings::settings;
 
 #[derive(Clone)]
 pub struct SessionService {
@@ -16,7 +17,11 @@ impl SessionService {
     }
 
     /// Добавить пользователя в список онлайн
-    pub async fn set_user_online(&self, user_id: UserId, node_id: &str) -> anyhow::Result<()> {
+    pub async fn set_user_online(
+        &self,
+        user_id: UserId,
+        node_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut con = self
             .redis
             .clone()
@@ -27,7 +32,10 @@ impl SessionService {
     }
 
     /// Удалить пользователя из списка онлайн
-    pub async fn remove_user(&self, user_id: UserId) -> anyhow::Result<()> {
+    pub async fn remove_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut con = self
             .redis
             .clone()

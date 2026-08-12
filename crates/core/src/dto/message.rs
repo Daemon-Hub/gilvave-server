@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::ids::{ChannelId, MessageId, UserId};
+use crate::{
+    from_row,
+    ids::{ChannelId, MessageId, UserId},
+};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateInfo {
@@ -25,5 +28,15 @@ pub struct MessageView {
 #[derive(Deserialize)]
 pub struct GetHistoryInfo {
     pub channel_id: ChannelId,
-    pub from: OffsetDateTime,
+    pub timestamp: OffsetDateTime,
 }
+
+from_row!(
+    MessageView,
+    id,
+    channel_id,
+    author_id,
+    author_name,
+    content,
+    created_at
+);

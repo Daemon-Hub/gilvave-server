@@ -2,7 +2,7 @@ use axum::extract::ws::{Message, WebSocket};
 use futures::stream::SplitSink;
 
 use crate::state::AppState;
-use gilvave_core::model::User;
+use gilvave_core::dto::user::User;
 
 #[async_trait::async_trait]
 pub trait EventHandler {
@@ -35,6 +35,6 @@ macro_rules! dispatch_event {
                 return;
             }
         )+
-        eprintln!("Unknown event type received");
+        tracing::error!("[WS] Unknown event type received");
     };
 }

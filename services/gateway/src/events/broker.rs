@@ -1,28 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{events::ServerEvent, state::AppState};
-use gilvave_core::{
-    dto::message::MessageView,
-    ids::{ChannelId, UserId},
-};
+use gilvave_core::dto::message::MessageView;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "op", content = "d")]
 pub enum BrokerEvent {
-    MessageCreated {
-        message: MessageView,
-    },
-    UserOnline {
-        user_id: UserId,
-    },
-    UserJoinedChannel {
-        channel_id: ChannelId,
-        user_id: UserId,
-    },
-    UserLeftChannel {
-        channel_id: ChannelId,
-        user_id: UserId,
-    },
+    MessageCreated { message: MessageView },
 }
 
 impl BrokerEvent {
@@ -38,15 +22,6 @@ impl BrokerEvent {
                     users.get(uid).unwrap().send(server_event.clone()).ok();
                 }
             }
-            Self::UserOnline { user_id } => {}
-            Self::UserJoinedChannel {
-                channel_id,
-                user_id,
-            } => {}
-            Self::UserLeftChannel {
-                channel_id,
-                user_id,
-            } => {}
         }
     }
 }

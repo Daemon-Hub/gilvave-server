@@ -8,8 +8,8 @@ use crate::{
 };
 use gilvave_core::{
     dto::message::{CreateInfo, GetHistoryInfo},
+    dto::user::User,
     ids::ChannelId,
-    model::User,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,10 +27,15 @@ pub enum ClientEvent {
     LeftChannel {
         channel_id: ChannelId,
     },
-    ChannelHistory {
+    ChannelHistoryBefore {
         channel_id: ChannelId,
         #[serde(with = "time::serde::rfc3339")]
-        from: time::OffsetDateTime,
+        timestamp: time::OffsetDateTime,
+    },
+    ChannelHistoryAfter {
+        channel_id: ChannelId,
+        #[serde(with = "time::serde::rfc3339")]
+        timestamp: time::OffsetDateTime,
     },
 }
 
@@ -62,7 +67,7 @@ impl EventHandler for ClientEvent {
                         };
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
-                            eprintln!("RabbitMQ publish error: {}", e);
+                            tracing::error!("[RabbitMQ] Publish error: {}", e);
                             _ = sender
                                 .send(Message::Text(
                                     serde_json::to_string(&ServerEvent::Error {
@@ -75,7 +80,7 @@ impl EventHandler for ClientEvent {
                         }
                     }
                     Err(e) => {
-                        eprintln!("Failed to save message to DB: {}", e);
+                        tracing::error!("[DB] Failed to save message to DB: {}", e.to_string());
                         let error_event = ServerEvent::Error {
                             message: "Failed to send message".into(),
                         };
@@ -94,7 +99,7 @@ impl EventHandler for ClientEvent {
                     .or_insert([user.id].into());
                 let json = serde_json::to_string(&ServerEvent::JoinSuccess).unwrap();
                 _ = sender.send(Message::Text(json.into())).await;
-                println!(
+                tracing::info!(
                     "[WS] User {} joined to channel {channel_id}. Total online in channel: {}",
                     user.id,
                     channels.get(&channel_id).iter().len()
@@ -104,20 +109,55 @@ impl EventHandler for ClientEvent {
                 let mut channels = state.channels.write().await;
                 channels.entry(channel_id).and_modify(|users| {
                     users.remove(&user.id);
-                    println!(
+                    tracing::info!(
                         "[WS] User {} left in channel {channel_id}. Total online in channel: {}",
                         user.id,
                         users.len()
                     );
                 });
             }
-            Self::ChannelHistory { channel_id, from } => {
-                let history = state
+            Self::ChannelHistoryBefore {
+                channel_id,
+                timestamp,
+            } => {
+                let history = match state
                     .message_service
-                    .get_history_by_time(GetHistoryInfo { channel_id, from })
+                    .get_history_before(GetHistoryInfo {
+                        channel_id,
+                        timestamp,
+                    })
                     .await
-                    .unwrap();
-                let json = serde_json::to_string(&ServerEvent::ChannelHistory(history)).unwrap();
+                {
+                    Ok(hist) => hist,
+                    Err(e) => {
+                        tracing::error!("[DB] Failed to get history before: {}", e);
+                        return;
+                    }
+                };
+                let json =
+                    serde_json::to_string(&ServerEvent::ChannelHistoryBefore(history)).unwrap();
+                _ = sender.send(Message::Text(json.into())).await;
+            }
+            Self::ChannelHistoryAfter {
+                channel_id,
+                timestamp,
+            } => {
+                let history = match state
+                    .message_service
+                    .get_history_after(GetHistoryInfo {
+                        channel_id,
+                        timestamp,
+                    })
+                    .await
+                {
+                    Ok(hist) => hist,
+                    Err(e) => {
+                        tracing::error!("[DB] Failed to get history after: {}", e);
+                        return;
+                    }
+                };
+                let json =
+                    serde_json::to_string(&ServerEvent::ChannelHistoryAfter(history)).unwrap();
                 _ = sender.send(Message::Text(json.into())).await;
             }
         }

@@ -44,7 +44,7 @@
         },
         // --- TERMINAL ---
         "terminal.integrated.defaultProfile.windows": "PowerShell",
-        "terminal.integrated.cwd": "${workspaceFolder: gilvave-server}",
+        "terminal.integrated.cwd": "${workspaceFolder:gilvave-server}",
         // --- ENV ---
         "dotenv.enableAutocloaking": false,
         "commentTranslate.hover.enabled": true,
