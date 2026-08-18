@@ -1,5 +1,5 @@
 use argon2::{
-    Argon2,
+    Algorithm, Argon2, Params, Version,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
 use bytes::Bytes;
@@ -13,7 +13,7 @@ use gilvave_core::{
     ids::UserId,
 };
 
-use crate::{jwt::verify_jwt, db::Database};
+use crate::{db::Database, jwt::verify_jwt};
 
 #[derive(Clone)]
 pub struct UserService {
@@ -23,8 +23,12 @@ pub struct UserService {
 impl UserService {
     pub fn hash_password(&self, password: &str) -> String {
         let salt = SaltString::generate(&mut OsRng);
-
-        Argon2::default()
+        let argon2 = Argon2::new(
+            Algorithm::Argon2id,
+            Version::V0x13,
+            Params::new(64_000, 3, 4, None).unwrap(),
+        );
+        argon2
             .hash_password(password.as_bytes(), &salt)
             .unwrap()
             .to_string()
@@ -32,10 +36,12 @@ impl UserService {
 
     pub fn verify_password(&self, hash: &str, password: &str) -> bool {
         let parsed = PasswordHash::new(hash).unwrap();
-
-        Argon2::default()
-            .verify_password(password.as_bytes(), &parsed)
-            .is_ok()
+        let argon2 = Argon2::new(
+            Algorithm::Argon2id,
+            Version::V0x13,
+            Params::new(64_000, 3, 4, None).unwrap(),
+        );
+        argon2.verify_password(password.as_bytes(), &parsed).is_ok()
     }
 
     pub async fn create(
@@ -208,13 +214,7 @@ impl UserService {
     pub async fn is_token_blacklisted(&self, jti: &uuid::Uuid) -> Result<bool, DatabaseError> {
         let row = self
             .db
-            .query_opt(
-                r#"
-                SELECT id FROM token_blacklist
-                WHERE jti = $1;
-                "#,
-                &[jti],
-            )
+            .query_opt(r#"SELECT 1 FROM token_blacklist WHERE jti = $1"#, &[jti])
             .await?;
 
         Ok(row.is_some())

@@ -1,10 +1,10 @@
 pub mod channel;
 pub mod message;
-pub mod ref_token;
+pub mod session;
 pub mod server;
 pub mod user;
 
 pub use {
-    channel::ChannelService, message::MessageService, ref_token::RefTokenService,
+    channel::ChannelService, message::MessageService, session::SessionService,
     server::ServerService, user::UserService,
 };

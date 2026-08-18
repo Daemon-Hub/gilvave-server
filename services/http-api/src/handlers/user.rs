@@ -1,18 +1,19 @@
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Multipart, State},
     http::header::HeaderMap,
 };
+use std::net::IpAddr;
 
 use gilvave_core::{
     dto::user::{
-        AuthTokensResponse, Avatar, AvatarUrl, BlacklistInfo, LoginRequest, RefreshTokenRequest,
-        RegisterRequest, UpdateAvatarInfo, UserView,
+        AuthTokensResponse, Avatar, AvatarUrl, BlacklistInfo, LoginInfo, RefreshTokenRequest,
+        RegisterRequest, SessionCreateInfo, UpdateAvatarInfo, UserView,
     },
     error::CoreError,
 };
 use gilvave_infra::{
-    jwt::{create_jwt, generate_refresh_token},
+    jwt::{create_jwt, generate_refresh_token, hash_refresh_token},
     security::auth::AuthUser,
 };
 
@@ -54,7 +55,8 @@ pub async fn register(
 
 pub async fn login(
     State(state): State<AppState>,
-    Json(body): Json<LoginRequest>,
+    Extension(ip_address): Extension<IpAddr>,
+    Json(body): Json<LoginInfo>,
 ) -> Result<Json<AuthTokensResponse>, CoreError> {
     let user = match state.user_service.find_by_email(&body.email).await? {
         Some(u) => u,
@@ -72,13 +74,21 @@ pub async fn login(
         return Err(CoreError::Unauthorized("Invalid password".to_string()));
     }
 
-    let access_token = create_jwt(user.id).unwrap();
     let refresh_token = generate_refresh_token();
+    let refresh_token_hash = hash_refresh_token(&refresh_token);
 
-    state
-        .ref_token_service
-        .sync(user.id, &refresh_token)
+    let session_id = state
+        .session_service
+        .create(SessionCreateInfo {
+            user_id: user.id,
+            refresh_token_hash: refresh_token_hash.as_bytes(),
+            device_id: body.device_id,
+            device_info: body.device_info,
+            ip_address,
+        })
         .await?;
+
+    let access_token = create_jwt(session_id, user.id).unwrap();
 
     Ok(Json(AuthTokensResponse {
         access_token,
@@ -91,7 +101,7 @@ pub async fn logout(
     AuthUser(user): AuthUser,
     header: HeaderMap,
 ) -> Result<(), CoreError> {
-    state.ref_token_service.delete(user.id).await?;
+    state.session_service.delete(user.id).await?;
     let token = String::from(
         header
             .get("authorization")
@@ -113,23 +123,27 @@ pub async fn logout(
 
 pub async fn refresh_token(
     State(state): State<AppState>,
+    Extension(ip_address): Extension<IpAddr>,
     Json(body): Json<RefreshTokenRequest>,
 ) -> Result<Json<AuthTokensResponse>, CoreError> {
-    let user_id = state
-        .ref_token_service
-        .get(&body.refresh_token)
+    let refresh_token_hash = hash_refresh_token(&body.refresh_token);
+    let (session_id, user_id) = state
+        .session_service
+        .get_unexpired(&refresh_token_hash)
         .await
         .ok_or(CoreError::Unauthorized(
             "Invalid or expired refresh token".to_string(),
         ))?;
 
-    let access_token =
-        create_jwt(user_id).map_err(|e| CoreError::InternalServerError(e.to_string()))?;
+    let access_token = create_jwt(session_id, user_id)
+        .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
+
     let refresh_token = generate_refresh_token();
+    let refresh_token_hash = hash_refresh_token(&refresh_token);
 
     state
-        .ref_token_service
-        .sync(user_id, &refresh_token)
+        .session_service
+        .update(user_id, session_id, refresh_token_hash, ip_address)
         .await?;
 
     Ok(Json(AuthTokensResponse {

@@ -1,4 +1,3 @@
--- Add migration script here
 CREATE TABLE users (
     id UUID PRIMARY KEY,
     username TEXT NOT NULL,
@@ -7,3 +6,7 @@ CREATE TABLE users (
     is_active BOOLEAN NOT NULL DEFAULT true,
     avatar TEXT NOT NULL DEFAULT ''
 );
+
+CREATE INDEX idx_users_username ON users (username);
+
+CREATE INDEX idx_users_email ON users (email);

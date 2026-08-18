@@ -4,7 +4,7 @@ use axum::{
 };
 
 use crate::{jwt::verify_jwt, service::user::UserService};
-use gilvave_core::{dto::user::User, error::CoreError, ids::UserId};
+use gilvave_core::{dto::user::User, error::CoreError};
 
 #[derive(Clone)]
 pub struct AuthUser(pub User);
@@ -49,9 +49,11 @@ where
         }
 
         let user = user_service
-            .find_by_id(UserId(payload.sub))
+            .find_by_id(payload.sub)
             .await
-            .map_err(|_| CoreError::InternalServerError("Error occurred while fetching user".to_string()))?
+            .map_err(|_| {
+                CoreError::InternalServerError("Error occurred while fetching user".to_string())
+            })?
             .ok_or(CoreError::Forbidden("User not found".to_string()))?;
 
         if !user.is_active {

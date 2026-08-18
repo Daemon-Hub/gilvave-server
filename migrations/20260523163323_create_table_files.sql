@@ -10,5 +10,6 @@ CREATE TABLE files (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_files_created_at ON files (created_at);
 CREATE INDEX idx_files_message_id ON files (message_id);
+
+CREATE INDEX idx_files_created_at ON files (created_at);

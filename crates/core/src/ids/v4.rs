@@ -94,3 +94,4 @@ macro_rules! id_type {
 
 id_type!(ServerId);
 id_type!(ChannelId);
+id_type!(DeviceId);

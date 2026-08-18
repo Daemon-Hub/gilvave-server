@@ -5,3 +5,6 @@ CREATE TABLE token_blacklist (
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_token_blacklist_jti ON token_blacklist(jti);
+CREATE INDEX idx_token_blacklist_user_id ON token_blacklist(user_id);

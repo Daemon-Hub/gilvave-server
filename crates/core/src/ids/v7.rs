@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use uuid::{Error, Uuid};
 
-use tokio_postgres::types::{FromSql, ToSql, IsNull, Type};
 use bytes::BytesMut;
+use tokio_postgres::types::{FromSql, IsNull, ToSql, Type};
 
 macro_rules! id_type {
     ($name:ident) => {
@@ -100,4 +100,4 @@ macro_rules! id_type {
 
 id_type!(UserId);
 id_type!(MessageId);
-id_type!(RefreshTokenId);
+id_type!(SessionId);
