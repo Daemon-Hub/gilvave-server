@@ -52,21 +52,19 @@ impl SessionService {
                     id, 
                     user_id, 
                     refresh_token_hash, 
-                    device_id,
                     device_info, 
                     ip_address, 
                     created_at, 
                     expires_at,
                     last_used_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING id;
                 "#,
                 &[
                     &SessionId::default(),
                     &info.user_id,
                     &info.refresh_token_hash,
-                    &info.device_id,
                     &info.device_info,
                     &info.ip_address,
                     &now,

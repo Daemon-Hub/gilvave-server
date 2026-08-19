@@ -5,7 +5,7 @@ use time::OffsetDateTime;
 
 use crate::{
     from_row,
-    ids::{DeviceId, SessionId, UserId},
+    ids::{SessionId, UserId},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,7 +29,6 @@ pub struct RegisterRequest {
 pub struct LoginInfo {
     pub email: String,
     pub password: String,
-    pub device_id: DeviceId,
     pub device_info: serde_json::Value,
 }
 
@@ -37,7 +36,6 @@ pub struct LoginInfo {
 pub struct SessionCreateInfo<'a> {
     pub user_id: UserId,
     pub refresh_token_hash: &'a [u8],
-    pub device_id: DeviceId,
     pub device_info: serde_json::Value,
     pub ip_address: IpAddr,
 }

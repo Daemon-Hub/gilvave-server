@@ -82,7 +82,6 @@ pub async fn login(
         .create(SessionCreateInfo {
             user_id: user.id,
             refresh_token_hash: refresh_token_hash.as_bytes(),
-            device_id: body.device_id,
             device_info: body.device_info,
             ip_address,
         })
