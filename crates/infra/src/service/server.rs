@@ -17,20 +17,20 @@ impl ServerService {
         &self,
         info: ServerCreateInfo,
         owner_id: UserId,
-    ) -> Result<ServerView, DatabaseError> {
+    ) -> Result<Server, DatabaseError> {
         let row = self
             .db
             .query_one(
                 r#"
-                INSERT INTO servers (name, owner_id, icon_url, is_public)
-                VALUES ($1, $2, $3, $4)
-                RETURNING id, name, icon_url, created_at;
+                INSERT INTO servers (owner_id, name, is_public)
+                VALUES ($1, $2, $3)
+                RETURNING *;
                 "#,
-                &[&info.name, &owner_id.0, &info.icon_url, &info.is_public],
+                &[&owner_id.0, &info.name, &info.is_public],
             )
             .await?;
 
-        let server = ServerView::from_row(&row)?;
+        let server = Server::from_row(&row)?;
 
         self.add_user(JoinInfo {
             server_id: server.id,
@@ -41,43 +41,33 @@ impl ServerService {
         Ok(server)
     }
 
-    pub async fn get_all_public(&self) -> Result<Vec<ServerView>, DatabaseError> {
+    /// Получить список публичных серверов
+    pub async fn get_public(&self, offset: i32) -> Result<Vec<Server>, DatabaseError> {
         self.db
             .query(
                 r#"
-                SELECT id, name, icon_url, created_at
-                FROM servers
-                WHERE is_public = true; 
+                SELECT * FROM servers
+                WHERE is_public = true
+                LIMIT 20
+                OFFSET $1;
                 "#,
-                &[],
+                &[&offset],
             )
             .await?
             .iter()
-            .map(ServerView::from_row)
-            .collect::<Result<Vec<_>, _>>()
+            .map(Server::from_row)
+            .collect()
     }
 
-    pub async fn get_owned(&self, user_id: UserId) -> Result<Vec<ServerView>, DatabaseError> {
+    /// Получить список серверов, в которых состоит пользователь
+    pub async fn retrieve_user_servers(
+        &self,
+        user_id: UserId,
+    ) -> Result<Vec<ServerSmallPart>, DatabaseError> {
         self.db
             .query(
                 r#"
-                SELECT id, name, icon_url, created_at
-                FROM servers
-                WHERE owner_id = $1; 
-                "#,
-                &[&user_id.0],
-            )
-            .await?
-            .iter()
-            .map(ServerView::from_row)
-            .collect::<Result<Vec<_>, _>>()
-    }
-
-    pub async fn get_member(&self, user_id: UserId) -> Result<Vec<ServerView>, DatabaseError> {
-        self.db
-            .query(
-                r#"
-                SELECT s.id, s.name, s.icon_url, s.created_at
+                SELECT s.id, s.name, s.icon_url
                 FROM servers s
                 JOIN server_members sm ON sm.server_id = s.id
                 WHERE sm.user_id = $1; 
@@ -86,17 +76,11 @@ impl ServerService {
             )
             .await?
             .iter()
-            .map(ServerView::from_row)
-            .collect::<Result<Vec<_>, _>>()
+            .map(ServerSmallPart::from_row)
+            .collect()
     }
 
-    pub async fn get_all_by_user(&self, user_id: UserId) -> Result<Vec<ServerView>, DatabaseError> {
-        //let mut owned = self.get_owned(user_id).await.unwrap_or_default();
-        let member = self.get_member(user_id).await.unwrap_or_default();
-        //owned.extend(member);
-        Ok(member)
-    }
-
+    /// Проверить, является ли пользователь владельцем сервера
     pub async fn is_user_owned(
         &self,
         user_id: UserId,
@@ -117,6 +101,7 @@ impl ServerService {
         Ok(row.is_some())
     }
 
+    /// Добавить пользователя на сервер
     pub async fn add_user(&self, info: JoinInfo) -> Result<(), DatabaseError> {
         self.db
             .execute(
@@ -130,6 +115,7 @@ impl ServerService {
         Ok(())
     }
 
+    /// Получить список участников сервера
     pub async fn get_members(&self, server_id: ServerId) -> Result<Vec<MemberView>, DatabaseError> {
         self.db
             .query(

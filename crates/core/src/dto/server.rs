@@ -6,19 +6,43 @@ use crate::{
     ids::{ServerId, UserId},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ServerView {
+#[derive(Serialize, Deserialize)]
+pub struct ServerSmallPart {
     pub id: ServerId,
     pub name: String,
     pub icon_url: String,
+}
+from_row!(ServerSmallPart, id, name, icon_url);
+
+#[derive(Serialize)]
+pub struct Server {
+    pub id: ServerId,
+    pub owner_id: UserId,
+    pub name: String,
+    pub description: String,
+    pub icon_url: String,
+    pub cover: String,
+    pub is_public: bool,
+    pub members_count: u32,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
 }
+from_row!(
+    Server,
+    id,
+    owner_id,
+    name,
+    description,
+    icon_url,
+    cover,
+    is_public,
+    members_count,
+    created_at
+);
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ServerCreateInfo {
     pub name: String,
-    pub icon_url: Option<String>,
     pub is_public: bool,
 }
 
@@ -39,6 +63,4 @@ pub struct MemberView {
     pub username: String,
     pub avatar: String,
 }
-
-from_row!(ServerView, id, name, icon_url, created_at);
 from_row!(MemberView, user_id, username, avatar);

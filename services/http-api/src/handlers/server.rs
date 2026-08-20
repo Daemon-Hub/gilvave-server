@@ -10,22 +10,25 @@ use gilvave_infra::security::auth::AuthUser;
 pub async fn get_user_servers(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
-) -> Result<Json<Vec<ServerView>>, CoreError> {
-    let servers = state.server_service.get_member(user.id).await?;
+) -> Result<Json<Vec<ServerSmallPart>>, CoreError> {
+    let servers = state.server_service.retrieve_user_servers(user.id).await?;
     Ok(Json(servers))
 }
 
-pub async fn get_all_public_servers(
+pub async fn get_public_servers(
+    Path(page): Path<i32>,
     State(state): State<AppState>,
-) -> Result<Json<Vec<ServerView>>, CoreError> {
-    Ok(Json(state.server_service.get_all_public().await?))
+) -> Result<Json<Vec<Server>>, CoreError> {
+    Ok(Json(
+        state.server_service.get_public((page - 1) * 20).await?,
+    ))
 }
 
 pub async fn create_server(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
     Json(info): Json<ServerCreateInfo>,
-) -> Result<Json<ServerView>, CoreError> {
+) -> Result<Json<Server>, CoreError> {
     Ok(Json(state.server_service.create(info, user.id).await?))
 }
 
@@ -35,9 +38,6 @@ pub async fn create_server(
 Если по ссылке приглашению:
     юзер перешел по ссылке -> проверить валидность ссылки (например, секретного токена) ->
     если секретный токен не истек или не удален -> добавить юзера
-Если личное приглашение:
-    админ выбрал юзера для добавления -> юзеру пришло личное приглашение ->
-    если юзер принял приглашение -> добавить юзера
 */
 pub async fn join_public(
     Path(server_id): Path<ServerId>,
