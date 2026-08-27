@@ -15,8 +15,7 @@ impl BrokerEvent {
             Self::MessageCreated { message } => {
                 let server_event = ServerEvent::MessageNew(message.clone());
 
-                let channels = state.channels.read().await;
-                let users = state.users.read().await;
+                let (channels, users) = tokio::join!(state.channels.read(), state.users.read());
 
                 for uid in channels.get(&message.channel_id).unwrap() {
                     users.get(uid).unwrap().send(server_event.clone()).ok();

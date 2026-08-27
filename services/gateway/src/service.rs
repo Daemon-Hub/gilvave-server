@@ -1,47 +1,62 @@
-use redis::{AsyncTypedCommands, Client};
+use redis::{/*AsyncTypedCommands,*/ Client, RedisResult, aio::MultiplexedConnection};
 use std::sync::Arc;
 
-use gilvave_core::ids::UserId;
+use gilvave_core::ids::{ServerId, UserId};
 use gilvave_settings::settings;
 
 #[derive(Clone)]
-pub struct SessionService {
+pub struct RedisService {
     redis: Arc<Client>,
 }
 
-impl SessionService {
+impl RedisService {
     pub fn new() -> Self {
         Self {
             redis: Arc::new(Client::open(settings!().redis_url).unwrap()),
         }
     }
 
-    /// Добавить пользователя в список онлайн
+    async fn get_connection(&self) -> RedisResult<MultiplexedConnection> {
+        self.redis.clone().get_multiplexed_async_connection().await
+    }
+
+    /// Добавить пользователя в глобальный список онлайн
     pub async fn set_user_online(
         &self,
         user_id: UserId,
-        node_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut con = self
-            .redis
-            .clone()
-            .get_multiplexed_async_connection()
-            .await?;
-        con.set(format!("user:{}", user_id.0), node_id).await?;
-        Ok(())
+        server_ids: Vec<ServerId>,
+    ) -> RedisResult<()> {
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+
+        pipe.sadd("global:online", user_id.to_string()).ignore();
+
+        for sid in server_ids {
+            pipe.sadd(format!("server:{}:online", sid), user_id.to_string())
+                .ignore();
+        }
+
+        let mut con = self.get_connection().await?;
+        pipe.query_async::<()>(&mut con).await
     }
 
-    /// Удалить пользователя из списка онлайн
-    pub async fn remove_user(
+    /// Удалить пользователя из глобального списка онлайн
+    pub async fn del_user_online(
         &self,
         user_id: UserId,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut con = self
-            .redis
-            .clone()
-            .get_multiplexed_async_connection()
-            .await?;
-        con.del(format!("user:{}", user_id.0)).await?;
-        Ok(())
+        server_ids: Vec<ServerId>,
+    ) -> RedisResult<()> {
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+
+        pipe.srem("global:online", user_id.to_string()).ignore();
+
+        for sid in server_ids {
+            pipe.srem(format!("server:{}:online", sid), user_id.to_string())
+                .ignore();
+        }
+
+        let mut con = self.get_connection().await?;
+        pipe.query_async::<()>(&mut con).await
     }
 }

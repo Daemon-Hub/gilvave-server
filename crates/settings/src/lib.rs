@@ -52,7 +52,7 @@ pub fn setup_settings() {
 
 pub static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
-/// Макрос предоставляющий доступ к предустановленным настройкам системы
+/// Макрос предоставляющий доступ к предустановленным переменным приложения
 #[macro_export]
 macro_rules! settings {
     () => {

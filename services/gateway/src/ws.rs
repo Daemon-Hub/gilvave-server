@@ -3,9 +3,8 @@ use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::IntoResponse,
 };
-use futures::{SinkExt, StreamExt, stream::SplitSink};
-use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
+use futures::{SinkExt, StreamExt};
+use tokio::sync::mpsc::{self, UnboundedSender};
 
 use crate::dispatch_event;
 use crate::events::{ClientEvent, EventHandler, ServerEvent};
@@ -25,26 +24,6 @@ pub async fn ws_handler(
 pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
     let (mut sender, mut receiver) = ws.split();
 
-    if let Err(e) = state
-        .session
-        .set_user_online(user.id, &state.node_id.to_string())
-        .await
-    {
-        tracing::error!("[Redis] Failed to set user online: {}", e);
-    }
-
-    let (tx, mut rx) = mpsc::unbounded_channel::<ServerEvent>();
-
-    {
-        let mut users = state.users.write().await;
-        users.insert(user.id, tx.clone());
-        tracing::info!(
-            "[WS] User {} connected. Total online: {}",
-            user.id.0,
-            users.len()
-        );
-    }
-
     let hello = ServerEvent::Hello;
 
     if let Err(e) = sender
@@ -52,27 +31,52 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
         .await
     {
         tracing::error!("[WS] Failed to send Hello: {}", e);
-        cleanup_user(user.id, &state).await.ok();
         return;
     }
 
-    let sender = Arc::new(Mutex::new(sender));
+    let (tx, mut rx) = mpsc::unbounded_channel::<ServerEvent>();
 
-    let sender_recv = sender.clone();
+    tokio::join!(
+        async {
+            let mut users = state.users.write().await;
+            users.insert(user.id, tx.clone());
+            tracing::info!(
+                "[WS] User {} connected. Total online: {}",
+                user.id.0,
+                users.len()
+            );
+        },
+        async {
+            state
+                .redis
+                .set_user_online(
+                    user.id,
+                    state
+                        .server_service
+                        .retrieve_user_servers(user.id)
+                        .await
+                        .unwrap_or(vec![])
+                        .into_iter()
+                        .map(|s| s.id)
+                        .collect(),
+                )
+                .await
+                .map_err(|e| tracing::error!("[Redis] Failed to set user online: {}", e))
+                .ok();
+        }
+    );
+
     let recv_task = async {
         while let Some(Ok(msg)) = receiver.next().await {
             if let Ok(text) = msg.into_text() {
-                let mut sender = sender_recv.lock().await;
-                handle_event(text.to_string(), state.clone(), user.clone(), &mut sender).await;
+                handle_event(text.to_string(), state.clone(), user.clone(), tx.clone()).await;
             }
         }
     };
 
-    let sender_send = sender.clone();
     let send_task = async {
         while let Some(event) = rx.recv().await {
             let json = serde_json::to_string(&event).unwrap();
-            let mut sender = sender_send.lock().await;
             if sender.send(Message::Text(json.into())).await.is_err() {
                 break;
             }
@@ -91,7 +95,7 @@ pub async fn handle_event(
     text: String,
     state: AppState,
     user: User,
-    sender: &mut SplitSink<WebSocket, Message>,
+    sender: UnboundedSender<ServerEvent>,
 ) {
     dispatch_event!(&text, state, user, sender, [ClientEvent,]);
 }
@@ -100,16 +104,37 @@ async fn cleanup_user(
     user_id: UserId,
     state: &AppState,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    state.users.write().await.remove(&user_id);
-    state
-        .channels
-        .write()
-        .await
-        .iter_mut()
-        .for_each(|(_, users)| {
-            users.remove(&user_id);
-        });
-    state.session.remove_user(user_id).await?;
+    tokio::join!(
+        async { state.users.write().await.remove(&user_id) },
+        async {
+            state
+                .channels
+                .write()
+                .await
+                .iter_mut()
+                .for_each(|(_, users)| {
+                    users.remove(&user_id);
+                });
+        },
+        async {
+            state
+                .redis
+                .del_user_online(
+                    user_id,
+                    state
+                        .server_service
+                        .retrieve_user_servers(user_id)
+                        .await
+                        .unwrap_or(vec![])
+                        .into_iter()
+                        .map(|s| s.id)
+                        .collect(),
+                )
+                .await
+                .map_err(|e| tracing::error!("[Redis] Failed to set user online: {}", e))
+                .ok();
+        }
+    );
     tracing::info!("[WS] User {} cleaned up", user_id.0);
     Ok(())
 }

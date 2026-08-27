@@ -23,7 +23,7 @@ pub struct Server {
     pub icon_url: String,
     pub cover: String,
     pub is_public: bool,
-    pub members_count: u32,
+    pub members_count: i32,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
 }

@@ -1,12 +1,11 @@
-use axum::extract::ws::{Message, WebSocket};
-use futures::stream::SplitSink;
+use tokio::sync::mpsc::UnboundedSender;
 
-use crate::state::AppState;
+use crate::{events::ServerEvent, state::AppState};
 use gilvave_core::dto::user::User;
 
 #[async_trait::async_trait]
 pub trait EventHandler {
-    async fn handle(self, state: AppState, user: User, sender: &mut SplitSink<WebSocket, Message>);
+    async fn handle(self, state: AppState, user: User, sender: UnboundedSender<ServerEvent>);
 }
 
 /// Макрос раскрывается в цепочку if let ... else if let ...

@@ -41,8 +41,35 @@ impl ServerService {
         Ok(server)
     }
 
+    /// Получить полную информацию о сервере по его ID
+    pub async fn get_by_id(
+        &self,
+        server_id: ServerId,
+        user_id: UserId,
+    ) -> Result<Server, DatabaseError> {
+        Server::from_row(
+            &self
+                .db
+                .query_one(
+                    r#"SELECT * FROM servers
+                        WHERE id = $1
+                        AND (
+                            is_public = TRUE
+                            OR EXISTS (
+                                SELECT 1
+                                FROM server_members
+                                WHERE server_id = servers.id
+                                    AND user_id = $2
+                            )
+                        );"#,
+                    &[&server_id, &user_id],
+                )
+                .await?,
+        )
+    }
+
     /// Получить список публичных серверов
-    pub async fn get_public(&self, offset: i32) -> Result<Vec<Server>, DatabaseError> {
+    pub async fn get_public(&self, offset: i64) -> Result<Vec<Server>, DatabaseError> {
         self.db
             .query(
                 r#"

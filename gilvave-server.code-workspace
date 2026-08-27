@@ -29,6 +29,8 @@
         "rust-analyzer.cachePriming.enable": true,
         // --- FORMAT ---
         "editor.formatOnSave": true,
+        "editor.fontFamily": "Cascadia Code, 'CaskaydiaCove Nerd Font Mono', monospace",
+        "editor.fontLigatures": true,
         "[rust]": {
             "editor.defaultFormatter": "rust-lang.rust-analyzer"
         },
@@ -72,7 +74,7 @@
         "version": "2.0.0",
         "tasks": [
             {
-                "label": "run gilvave-http-api",
+                "label": "HTTP RUN",
                 "type": "shell",
                 "command": "cargo run -p gilvave-http-api",
                 "problemMatcher": [
@@ -81,7 +83,7 @@
                 "isBackground": true
             },
             {
-                "label": "run gilvave-gateway",
+                "label": "GATEWAY RUN",
                 "type": "shell",
                 "command": "cargo run -p gilvave-gateway",
                 "problemMatcher": [
@@ -90,11 +92,11 @@
                 "isBackground": true
             },
             {
-                "label": "docker up",
+                "label": "docker compose up",
                 "type": "shell",
                 "command": "wsl -d Ubuntu --exec sudo docker compose up -d",
                 "options": {
-                    "cwd": "${workspaceFolder: gilvave-server}"
+                    "cwd": "${workspaceFolder:gilvave-server}"
                 },
                 "group": "build",
                 "isBackground": true

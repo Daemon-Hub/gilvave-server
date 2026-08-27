@@ -17,11 +17,7 @@ impl ToSql for ChannelType {
         _ty: &Type,
         out: &mut BytesMut,
     ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
-        let val = match self {
-            ChannelType::TEXT => "text",
-            ChannelType::VOICE => "voice",
-        };
-        out.extend_from_slice(val.as_bytes());
+        out.extend_from_slice(format!("{self:?}").as_bytes());
         Ok(IsNull::No)
     }
 
@@ -41,8 +37,8 @@ impl<'a> FromSql<'a> for ChannelType {
         let s = std::str::from_utf8(raw)?;
 
         match s {
-            "text" => Ok(ChannelType::TEXT),
-            "voice" => Ok(ChannelType::VOICE),
+            "TEXT" => Ok(ChannelType::TEXT),
+            "VOICE  " => Ok(ChannelType::VOICE),
             _ => Err(format!("Invalid ChannelType value: {}", s).into()),
         }
     }

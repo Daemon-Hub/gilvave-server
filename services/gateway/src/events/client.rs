@@ -1,6 +1,5 @@
-use axum::extract::ws::{Message, WebSocket};
-use futures::{SinkExt, stream::SplitSink};
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     events::{BrokerEvent, EventHandler, ServerEvent},
@@ -41,11 +40,10 @@ pub enum ClientEvent {
 
 #[async_trait::async_trait]
 impl EventHandler for ClientEvent {
-    async fn handle(self, state: AppState, user: User, sender: &mut SplitSink<WebSocket, Message>) {
+    async fn handle(self, state: AppState, user: User, sender: UnboundedSender<ServerEvent>) {
         match self {
             Self::Heartbeat => {
-                let json = serde_json::to_string(&ServerEvent::HeartbeatAck).unwrap();
-                _ = sender.send(Message::Text(json.into())).await;
+                _ = sender.send(ServerEvent::HeartbeatAck);
             }
             Self::MessageCreate {
                 channel_id,
@@ -68,24 +66,16 @@ impl EventHandler for ClientEvent {
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
                             tracing::error!("[RabbitMQ] Publish error: {}", e);
-                            _ = sender
-                                .send(Message::Text(
-                                    serde_json::to_string(&ServerEvent::Error {
-                                        message: "Failed to broadcast".into(),
-                                    })
-                                    .unwrap()
-                                    .into(),
-                                ))
-                                .await;
+                            _ = sender.send(ServerEvent::Error {
+                                message: "Failed to broadcast".into(),
+                            });
                         }
                     }
                     Err(e) => {
                         tracing::error!("[DB] Failed to save message to DB: {}", e.to_string());
-                        let error_event = ServerEvent::Error {
+                        _ = sender.send(ServerEvent::Error {
                             message: "Failed to send message".into(),
-                        };
-                        let json = serde_json::to_string(&error_event).unwrap();
-                        _ = sender.send(Message::Text(json.into())).await;
+                        });
                     }
                 }
             }
@@ -97,8 +87,7 @@ impl EventHandler for ClientEvent {
                         users.insert(user.id);
                     })
                     .or_insert([user.id].into());
-                let json = serde_json::to_string(&ServerEvent::JoinSuccess).unwrap();
-                _ = sender.send(Message::Text(json.into())).await;
+                _ = sender.send(ServerEvent::JoinSuccess);
                 tracing::info!(
                     "[WS] User {} joined to channel {channel_id}. Total online in channel: {}",
                     user.id,
@@ -134,9 +123,7 @@ impl EventHandler for ClientEvent {
                         return;
                     }
                 };
-                let json =
-                    serde_json::to_string(&ServerEvent::ChannelHistoryBefore(history)).unwrap();
-                _ = sender.send(Message::Text(json.into())).await;
+                _ = sender.send(ServerEvent::ChannelHistoryBefore(history));
             }
             Self::ChannelHistoryAfter {
                 channel_id,
@@ -156,9 +143,7 @@ impl EventHandler for ClientEvent {
                         return;
                     }
                 };
-                let json =
-                    serde_json::to_string(&ServerEvent::ChannelHistoryAfter(history)).unwrap();
-                _ = sender.send(Message::Text(json.into())).await;
+                _ = sender.send(ServerEvent::ChannelHistoryAfter(history));
             }
         }
     }

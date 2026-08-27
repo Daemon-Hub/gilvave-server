@@ -15,8 +15,18 @@ pub async fn get_user_servers(
     Ok(Json(servers))
 }
 
+pub async fn get_server_by_id(
+    Path(server_id): Path<ServerId>,
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+) -> Result<Json<Server>, CoreError> {
+    Ok(Json(
+        state.server_service.get_by_id(server_id, user.id).await?,
+    ))
+}
+
 pub async fn get_public_servers(
-    Path(page): Path<i32>,
+    Path(page): Path<i64>,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<Server>>, CoreError> {
     Ok(Json(
