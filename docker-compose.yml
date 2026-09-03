@@ -3,15 +3,15 @@ x-env: &env
     - .env
 
 services:
-  # postgres:
-  #   <<: *env
-  #   image: postgres:16-alpine
-  #   container_name: gilvave-postgres
-  #   ports:
-  #     - ${POSTGRES_PORT}:${POSTGRES_PORT}
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   restart: unless-stopped
+  postgres:
+    <<: *env
+    image: postgres:18-alpine
+    container_name: gilvave-postgres
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    restart: unless-stopped
 
   redis:
     <<: *env
@@ -28,6 +28,73 @@ services:
       - ${RABBITMQ_DEFAULT_PORT}:${RABBITMQ_DEFAULT_PORT}
       - "15672:15672" # UI
 
+  # SeaweedFS S3
+  # Координатор кластера
+  master:
+    image: chrislusf/seaweedfs:latest
+    container_name: gilvave-sfs-master
+    command: master -ip.bind=0.0.0.0 -port=9333
+    ports:
+      - "9333:9333" # HTTP API
+      - "19333:19333" # gRPC (внутренний)
+    volumes:
+      - ~/seaweedfs/master-data:/data
+    restart: unless-stopped
 
-# volumes:
-#   postgres_data:
+  # Хранилище данных
+  volume:
+    image: chrislusf/seaweedfs:latest
+    container_name: gilvave-sfs-volume
+    command: volume -mserver=master:9333 -port=8080 -ip.bind=0.0.0.0 -dir=/data
+    ports:
+      - "8080:8080"
+      - "18080:18080"
+    volumes:
+      - ~/seaweedfs/volume-data:/data
+    depends_on:
+      - master
+    restart: unless-stopped
+
+  # Файловый интерфейс (Filer)
+  filer:
+    image: chrislusf/seaweedfs:latest
+    container_name: gilvave-sfs-filer
+    command: filer -master=master:9333 -port=8888 -ip.bind=0.0.0.0
+    ports:
+      - "8888:8888"
+      - "18888:18888"
+    volumes:
+      - ~/seaweedfs/filer-data:/data
+    depends_on:
+      - master
+      - volume
+    restart: unless-stopped
+
+  # S3 Gateway
+  s3:
+    image: chrislusf/seaweedfs:latest
+    container_name: gilvave-sfs-s3
+    command: s3 -filer=filer:8888 -port=8333 -ip.bind=0.0.0.0 -config=/etc/seaweedfs/s3.json
+    ports:
+      - "8333:8333" # S3 API
+    volumes:
+      - ~/seaweedfs/s3-config.json:/etc/seaweedfs/s3.json
+    depends_on:
+      - filer
+    restart: unless-stopped
+
+  # Веб-админка
+  admin:
+    image: chrislusf/seaweedfs:latest
+    container_name: gilvave-sfs-admin
+    command: admin -masters="master:9333" -port=23646 -adminUser=admin -adminPassword=admin -dataDir=/data
+    ports:
+      - "23646:23646" # Web UI
+    volumes:
+      - ~/seaweedfs/admin-data:/data
+    depends_on:
+      - master
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

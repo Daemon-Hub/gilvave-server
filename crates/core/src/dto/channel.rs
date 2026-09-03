@@ -38,7 +38,7 @@ impl<'a> FromSql<'a> for ChannelType {
 
         match s {
             "TEXT" => Ok(ChannelType::TEXT),
-            "VOICE  " => Ok(ChannelType::VOICE),
+            "VOICE" => Ok(ChannelType::VOICE),
             _ => Err(format!("Invalid ChannelType value: {}", s).into()),
         }
     }
