@@ -69,21 +69,33 @@ impl ServerService {
     }
 
     /// Получить список публичных серверов
-    pub async fn get_public(&self, offset: i64) -> Result<Vec<Server>, DatabaseError> {
-        self.db
+    pub async fn get_public(&self, offset: i64) -> Result<(Vec<Server>, bool), DatabaseError> {
+        let mut rows = self
+            .db
             .query(
                 r#"
                 SELECT * FROM servers
                 WHERE is_public = true
-                LIMIT 20
+                ORDER BY created_at DESC
+                LIMIT 21
                 OFFSET $1;
                 "#,
                 &[&offset],
             )
-            .await?
+            .await?;
+
+        let has_more = rows.len() > 20;
+
+        if has_more {
+            rows.truncate(20);
+        }
+
+        let servers = rows
             .iter()
             .map(Server::from_row)
-            .collect()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok((servers, has_more))
     }
 
     /// Получить список серверов, в которых состоит пользователь

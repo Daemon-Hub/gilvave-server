@@ -94,7 +94,7 @@
             {
                 "label": "docker compose up",
                 "type": "shell",
-                "command": "wsl -d Ubuntu --exec sudo docker compose up -d",
+                "command": "wsl -d Ubuntu --exec docker compose up -d",
                 "options": {
                     "cwd": "${workspaceFolder:gilvave-server}"
                 },

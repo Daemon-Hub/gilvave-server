@@ -28,7 +28,7 @@ pub async fn get_server_by_id(
 pub async fn get_public_servers(
     Path(page): Path<i64>,
     State(state): State<AppState>,
-) -> Result<Json<Vec<Server>>, CoreError> {
+) -> Result<Json<(Vec<Server>, bool)>, CoreError> {
     Ok(Json(
         state.server_service.get_public((page - 1) * 20).await?,
     ))
