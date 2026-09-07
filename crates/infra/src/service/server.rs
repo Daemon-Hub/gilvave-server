@@ -146,10 +146,11 @@ impl ServerService {
             .execute(
                 r#"
                 INSERT INTO server_members (server_id, user_id)
-                VALUES ($1, $2);
+                VALUES ($1, $2)
+                ON CONFLICT (server_id, user_id) DO NOTHING;
                 "#,
                 &[&info.server_id.0, &info.user_id.0],
-            )
+            )   
             .await?;
         Ok(())
     }

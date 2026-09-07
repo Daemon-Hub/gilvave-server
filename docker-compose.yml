@@ -19,6 +19,7 @@ services:
     container_name: gilvave-redis
     ports:
       - ${REDIS_PORT}:${REDIS_PORT}
+    restart: unless-stopped
 
   rabbitmq:
     <<: *env
@@ -27,6 +28,7 @@ services:
     ports:
       - ${RABBITMQ_DEFAULT_PORT}:${RABBITMQ_DEFAULT_PORT}
       - "15672:15672" # UI
+    restart: unless-stopped
 
   # SeaweedFS S3
   # Координатор кластера
