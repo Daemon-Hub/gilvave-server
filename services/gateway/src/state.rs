@@ -7,13 +7,13 @@ use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
 
 use crate::events::ServerEvent;
-use crate::service::RedisService;
 use gilvave_core::ids::{ChannelId, UserId};
 use gilvave_infra::{
     db::Database,
     service::{MessageService, ServerService, UserService},
 };
 use gilvave_messaging::RabbitClient;
+use gilvave_redis::RedisService;
 
 type Tx = mpsc::UnboundedSender<ServerEvent>;
 type Dict<K, V> = Arc<RwLock<HashMap<K, V>>>;
@@ -45,7 +45,7 @@ impl AppState {
             node_id,
             users: Arc::new(RwLock::new(HashMap::new())),
             channels: Arc::new(RwLock::new(HashMap::new())),
-            redis: RedisService::new(),
+            redis: RedisService::new().await.unwrap(),
             broker: RabbitClient::new(&node_id.to_string()).await.unwrap(),
             user_service: UserService { db: db.clone() },
             message_service: MessageService { db: db.clone() },

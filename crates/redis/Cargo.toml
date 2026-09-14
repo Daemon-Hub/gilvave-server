@@ -1,0 +1,11 @@
+[package]
+name = "gilvave-redis"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fred = { version = "10", features = ["enable-rustls"] }
+
+gilvave-core = { path = "../core" }
+gilvave-settings = { path = "../settings" }

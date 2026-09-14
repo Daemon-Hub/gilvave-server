@@ -1,5 +1,4 @@
 mod events;
-mod service;
 mod state;
 mod ws;
 
