@@ -30,7 +30,7 @@ tracing-subscriber = { version = "0.3.23", features = [
 ] }
 
 # --- utils ---
-uuid = { version = "1.25.0", features = ["v4", "v7", "serde"] }
+uuid = { version = "1.26.1", features = ["v4", "v7", "serde"] }
 time = { version = "0.3.55", features = ["serde"] }
 futures = "0.3.34"
 bytes = "1.12.1"
@@ -42,10 +42,10 @@ tokio-postgres = { version = "0.7.18", features = [
     "with-uuid-1",
     "with-time-0_3",
 ] }
-deadpool-postgres = { version = "0.14.1", features = ["serde"] }
+deadpool-postgres = { version = "0.14.2", features = ["serde"] }
 
 # --- auth ---
-jsonwebtoken = { version = "11.0.0", features = ["default", "rust_crypto"] }
+jsonwebtoken = { version = "11.1.0", features = ["default", "rust_crypto"] }
 argon2 = "0.5.3"
 
 # --- allocator ---
