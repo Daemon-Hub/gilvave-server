@@ -14,3 +14,4 @@ serde_json.workspace = true
 tokio-postgres.workspace = true
 deadpool-postgres.workspace = true
 tracing.workspace = true
+decancer = "4.0.0"

@@ -12,6 +12,7 @@ tracing-subscriber.workspace = true
 jsonwebtoken.workspace = true
 mimalloc.workspace = true
 uuid.workspace = true
+tower-http = { version = "0.7", features = ["cors"] }
 
 gilvave-core = { path = "../../crates/core" }
 gilvave-infra = { path = "../../crates/infra" }

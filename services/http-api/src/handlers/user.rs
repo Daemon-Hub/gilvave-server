@@ -11,6 +11,7 @@ use gilvave_core::{
         RegisterRequest, SessionCreateInfo, UpdateAvatarInfo, UserView,
     },
     error::CoreError,
+    validation::validate_username,
 };
 use gilvave_infra::{
     jwt::{create_jwt, generate_refresh_token, hash_refresh_token},
@@ -23,6 +24,10 @@ pub async fn register(
     State(state): State<AppState>,
     Json(body): Json<RegisterRequest>,
 ) -> Result<(), CoreError> {
+    if let Err(msg) = validate_username(&body.username) {
+        return Err(CoreError::BadRequest(msg.to_string()));
+    }
+
     if state
         .user_service
         .find_by_email(&body.email)

@@ -88,7 +88,7 @@ impl UserService {
             .query_opt(
                 r#"
                 SELECT * FROM users
-                WHERE username = $1;
+                WHERE LOWER(username) = LOWER($1);
                 "#,
                 &[&username],
             )

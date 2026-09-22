@@ -75,7 +75,13 @@ impl std::fmt::Display for DatabaseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DatabaseError::Pool(e) => write!(f, "Database pool error: {e}"),
-            DatabaseError::Postgres(e) => write!(f, "PostgreSQL error: {e}"),
+            DatabaseError::Postgres(e) => {
+                if let Some(d) = e.as_db_error() {
+                    write!(f, "PostgreSQL error: code={}, message={}, detail={:?}, constraint={:?}", d.code().code(), d.message(), d.detail(), d.constraint())
+                } else {
+                    write!(f, "PostgreSQL error: {e:?}")
+                }
+            }
         }
     }
 }

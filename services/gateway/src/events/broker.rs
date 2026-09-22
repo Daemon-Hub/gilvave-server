@@ -17,8 +17,12 @@ impl BrokerEvent {
 
                 let (channels, users) = tokio::join!(state.channels.read(), state.users.read());
 
-                for uid in channels.get(&message.channel_id).unwrap() {
-                    users.get(uid).unwrap().send(server_event.clone()).ok();
+                if let Some(channel_users) = channels.get(&message.channel_id) {
+                    for uid in channel_users {
+                        if let Some(user_tx) = users.get(uid) {
+                            user_tx.send(server_event.clone()).ok();
+                        }
+                    }
                 }
             }
         }

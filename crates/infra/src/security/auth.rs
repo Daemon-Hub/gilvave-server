@@ -20,19 +20,47 @@ where
         let auth_header = parts
             .headers
             .get(header::AUTHORIZATION)
-            .and_then(|header| header.to_str().ok())
-            .ok_or(CoreError::Unauthorized(
-                "Missing authorization header".to_string(),
-            ))?;
+            .and_then(|header| header.to_str().ok());
 
-        let token = auth_header
-            .strip_prefix("Bearer ")
-            .ok_or(CoreError::Unauthorized(
-                "Invalid authorization header format".to_string(),
-            ))?;
+        let token = if let Some(header_val) = auth_header {
+            header_val
+                .strip_prefix("Bearer ")
+                .ok_or(CoreError::Unauthorized(
+                    "Invalid authorization header format".to_string(),
+                ))?
+                .to_string()
+        } else if let Some(query) = parts.uri.query() {
+            let mut found = None;
+            for pair in query.split('&') {
+                if let Some((k, v)) = pair.split_once('=') {
+                    if k == "token" || k == "access_token" {
+                        found = Some(v.to_string());
+                        break;
+                    }
+                }
+            }
+            found.ok_or(CoreError::Unauthorized(
+                "Missing authorization header".to_string(),
+            ))?
+        } else if let Some(proto) = parts
+            .headers
+            .get("sec-websocket-protocol")
+            .and_then(|h| h.to_str().ok())
+        {
+            let p = proto
+                .split(',')
+                .map(|s| s.trim())
+                .find(|s| s.starts_with("ey"))
+                .unwrap_or(proto);
+            p.to_string()
+        } else {
+            return Err(CoreError::Unauthorized(
+                "Missing authorization header".to_string(),
+            ));
+        };
 
         let payload =
-            verify_jwt(token).map_err(|_| CoreError::Unauthorized("Invalid token".to_string()))?;
+            verify_jwt(&token).map_err(|_| CoreError::Unauthorized("Invalid token".to_string()))?;
 
         let user_service = UserService::from_ref(state);
 

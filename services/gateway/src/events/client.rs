@@ -49,13 +49,23 @@ impl EventHandler for ClientEvent {
                 channel_id,
                 content,
             } => {
+                let sanitized_content = match gilvave_core::validation::validate_message(&content) {
+                    Ok(s) => s,
+                    Err(err_msg) => {
+                        _ = sender.send(ServerEvent::Error {
+                            message: err_msg.into(),
+                        });
+                        return;
+                    }
+                };
+
                 match state
                     .message_service
                     .create(CreateInfo {
                         channel_id,
                         author_id: user.id,
                         author_name: user.username,
-                        content,
+                        content: sanitized_content,
                     })
                     .await
                 {
