@@ -7,7 +7,7 @@ use jsonwebtoken::crypto::{CryptoProvider, rust_crypto::DEFAULT_PROVIDER};
 use mimalloc::MiMalloc;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 
 use gilvave_infra::db::init_db;
 use gilvave_settings::setup_settings;
@@ -35,9 +35,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let state = AppState::new(db).await;
 
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(AllowOrigin::mirror_request())
+        .allow_methods(AllowMethods::mirror_request())
+        .allow_headers(AllowHeaders::mirror_request())
+        .allow_credentials(true);
 
     let app = routes::routes(state)
         .layer(axum::middleware::from_fn(client_ip_middleware))
