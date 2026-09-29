@@ -122,14 +122,18 @@ pub fn validate_username(username: &str) -> Result<(), &'static str> {
         } else if c.is_ascii_digit() || is_allowed_username_symbol(c) {
             // Цифры и безопасные знаки нейтральны
         } else if !is_combining_mark(c) {
-            return Err("Имя пользователя может содержать только буквы, цифры и символы '_', '.', '-'");
+            return Err(
+                "Имя пользователя может содержать только буквы, цифры и символы '_', '.', '-'",
+            );
         }
     }
 
     // Защита от спуфинга: обнаружение атак со смешиванием алфавитов (например, кириллическая А с латинскими dmin)
     let script_count = (has_latin as u8) + (has_cyrillic as u8) + (has_greek as u8);
     if script_count > 1 {
-        return Err("Смешивание разных алфавитов (латиницы и кириллицы) в имени пользователя запрещено (защита от омоглифов)");
+        return Err(
+            "Смешивание разных алфавитов (латиницы и кириллицы) в имени пользователя запрещено (защита от омоглифов)",
+        );
     }
 
     Ok(())
@@ -204,10 +208,12 @@ pub fn sanitize_message(content: &str) -> String {
     sanitized
 }
 
+pub const MAX_MESSAGE_CHARS: usize = 16_384;
+
 /// Валидирует содержимое сообщения чата:
 /// - Очищает от вредоносных эксплойтов Unicode
 /// - Отклоняет визуально пустые сообщения (состоящие только из пробелов или удалённых скрытых символов)
-/// - Ограничивает максимальную длину сообщения (не более 4000 символов)
+/// - Ограничивает максимальную длину сообщения (не более 16_384 символов)
 pub fn validate_message(content: &str) -> Result<String, &'static str> {
     let sanitized = sanitize_message(content);
     let trimmed = sanitized.trim();
@@ -216,8 +222,8 @@ pub fn validate_message(content: &str) -> Result<String, &'static str> {
         return Err("Сообщение не может быть пустым");
     }
 
-    if trimmed.chars().count() > 4000 {
-        return Err("Сообщение слишком длинное (максимум 4000 символов)");
+    if trimmed.chars().count() > MAX_MESSAGE_CHARS {
+        return Err("Сообщение слишком длинное (максимум 16_384 символов)");
     }
 
     Ok(sanitized)

@@ -12,8 +12,6 @@ CREATE TABLE messages (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_messages_channel_id ON messages (channel_id);
-
 CREATE INDEX idx_messages_author_id ON messages (author_id);
 
-CREATE INDEX idx_messages_channel_covering ON messages (channel_id, created_at DESC) INCLUDE (author_name, content);
+CREATE INDEX idx_messages_channel_created_at ON messages (channel_id, created_at DESC);
