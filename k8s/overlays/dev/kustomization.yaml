@@ -1,0 +1,107 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: gilvave
+
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: infra-config
+    envs:
+      - .env
+    options:
+      disableNameSuffixHash: true
+
+secretGenerator:
+  - name: infra-secrets
+    envs:
+      - .env
+    options:
+      disableNameSuffixHash: true
+
+  # Секрет для пользователя базы
+  - name: postgres-user-secret
+    type: kubernetes.io/basic-auth
+    literals:
+      - username=PLACEHOLDER
+      - password=PLACEHOLDER
+    options:
+      disableNameSuffixHash: true
+
+  # Секрет для подключения к S3
+  - name: seaweedfs-s3-secrets
+    literals:
+      - ACCESS_KEY=PLACEHOLDER
+      - SECRET_KEY=PLACEHOLDER
+    options:
+      disableNameSuffixHash: true
+
+replacements:
+  # --- Postgres User ---
+  - source:
+      kind: Secret
+      name: infra-secrets
+      fieldPath: data.POSTGRES_USER
+    targets:
+      - select:
+          kind: Secret
+          name: postgres-user-secret
+        fieldPaths:
+          - data.username
+
+  - source:
+      kind: Secret
+      name: infra-secrets
+      fieldPath: data.POSTGRES_PASSWORD
+    targets:
+      - select:
+          kind: Secret
+          name: postgres-user-secret
+        fieldPaths:
+          - data.password
+
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.POSTGRES_DB
+    targets:
+      - select:
+          kind: Cluster
+          name: postgres
+        fieldPaths:
+          - spec.bootstrap.initdb.database
+
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.POSTGRES_USER
+    targets:
+      - select:
+          kind: Cluster
+          name: postgres
+        fieldPaths:
+          - spec.bootstrap.initdb.owner
+
+  # --- SeaweedFS S3 Secrets ---
+  - source:
+      kind: Secret
+      name: infra-secrets
+      fieldPath: data.S3_ACCESS_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: seaweedfs-s3-secrets
+        fieldPaths:
+          - data.ACCESS_KEY
+
+  - source:
+      kind: Secret
+      name: infra-secrets
+      fieldPath: data.S3_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: seaweedfs-s3-secrets
+        fieldPaths:
+          - data.SECRET_KEY

@@ -1,0 +1,284 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: seaweedfs-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Master
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seaweedfs-master
+  template:
+    metadata:
+      labels:
+        app: seaweedfs-master
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: master
+          image: chrislusf/seaweedfs:latest
+          command: ["weed"]
+          args: ["master", "-ip.bind=0.0.0.0", "-port=9333"]
+          ports:
+            - containerPort: 9333
+              name: http
+            - containerPort: 19333
+              name: grpc
+          volumeMounts:
+            - name: sfs-storage
+              mountPath: /data
+              subPath: master
+      volumes:
+        - name: sfs-storage
+          persistentVolumeClaim:
+            claimName: seaweedfs-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master
+spec:
+  selector:
+    app: seaweedfs-master
+  ports:
+    - name: http
+      port: 9333
+      targetPort: 9333
+    - name: grpc
+      port: 19333
+      targetPort: 19333
+---
+# Volume
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs-volume
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seaweedfs-volume
+  template:
+    metadata:
+      labels:
+        app: seaweedfs-volume
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: volume
+          image: chrislusf/seaweedfs:latest
+          command: ["weed"]
+          args:
+            [
+              "volume",
+              "-mserver=master:9333",
+              "-port=8080",
+              "-ip.bind=0.0.0.0",
+              "-dir=/data",
+            ]
+          ports:
+            - containerPort: 8080
+            - containerPort: 18080
+          volumeMounts:
+            - name: sfs-storage
+              mountPath: /data
+              subPath: volume
+      volumes:
+        - name: sfs-storage
+          persistentVolumeClaim:
+            claimName: seaweedfs-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: volume
+spec:
+  selector:
+    app: seaweedfs-volume
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+# Filer
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs-filer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seaweedfs-filer
+  template:
+    metadata:
+      labels:
+        app: seaweedfs-filer
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: filer
+          image: chrislusf/seaweedfs:latest
+          command: ["weed"]
+          args:
+            ["filer", "-master=master:9333", "-port=8888", "-ip.bind=0.0.0.0"]
+          ports:
+            - containerPort: 8888
+            - containerPort: 18888
+          volumeMounts:
+            - name: sfs-storage
+              mountPath: /data
+              subPath: filer
+      volumes:
+        - name: sfs-storage
+          persistentVolumeClaim:
+            claimName: seaweedfs-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: filer
+spec:
+  selector:
+    app: seaweedfs-filer
+  ports:
+    - name: http
+      port: 8888
+      targetPort: 8888
+    - name: grpc
+      port: 18888
+      targetPort: 18888
+---
+# S3 Gateway
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs-s3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seaweedfs-s3
+  template:
+    metadata:
+      labels:
+        app: seaweedfs-s3
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: s3
+          image: chrislusf/seaweedfs:latest
+          # Передаем ключи напрямую из сгенерированного секрета
+          env:
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-s3-secrets
+                  key: ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-s3-secrets
+                  key: SECRET_KEY
+          # Генерируем s3.json в памяти/tmp и запускаем weed s3
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cat <<EOF > /tmp/s3.json
+              {
+                "identities": [
+                  {
+                    "name": "admin",
+                    "credentials": [
+                      {
+                        "accessKey": "$S3_ACCESS_KEY",
+                        "secretKey": "$S3_SECRET_KEY"
+                      }
+                    ],
+                    "actions": ["Admin", "Read", "Write"]
+                  }
+                ]
+              }
+              EOF
+              exec weed s3 -filer=filer:8888 -port=8333 -ip.bind=0.0.0.0 -config=/tmp/s3.json
+          ports:
+            - containerPort: 8333
+              name: s3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s3
+spec:
+  type: LoadBalancer
+  selector:
+    app: seaweedfs-s3
+  ports:
+    - name: s3
+      port: 8333
+      targetPort: 8333
+---
+# Admin UI
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seaweedfs-admin
+  template:
+    metadata:
+      labels:
+        app: seaweedfs-admin
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: admin
+          image: chrislusf/seaweedfs:latest
+          command: ["weed"]
+          args:
+            [
+              "admin",
+              "-masters=master:9333",
+              "-port=23646",
+              "-adminUser=admin",
+              "-adminPassword=admin",
+              "-dataDir=/data",
+            ]
+          ports:
+            - containerPort: 23646
+              name: http
+          volumeMounts:
+            - name: sfs-storage
+              mountPath: /data
+              subPath: admin
+      volumes:
+        - name: sfs-storage
+          persistentVolumeClaim:
+            claimName: seaweedfs-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin
+spec:
+  type: LoadBalancer
+  selector:
+    app: seaweedfs-admin
+  ports:
+    - name: http
+      port: 23646
+      targetPort: 23646

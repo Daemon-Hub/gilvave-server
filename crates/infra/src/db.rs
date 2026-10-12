@@ -6,8 +6,6 @@ use tokio_postgres::{NoTls, Row};
 use gilvave_core::error::DatabaseError;
 use gilvave_settings::settings;
 
-refinery::embed_migrations!("../../migrations");
-
 macro_rules! db_methods {
     (
         $(
@@ -80,13 +78,12 @@ pub async fn init_db() -> Result<Database, Box<dyn std::error::Error + Send + Sy
 
     let pool = cfg.create_pool(Some(Runtime::Tokio1), NoTls)?;
 
-    let (mut client, connection) = tokio_postgres::connect(settings!().database_url, NoTls).await?;
+    let (_, connection) = tokio_postgres::connect(settings!().database_url, NoTls).await?;
     tokio::spawn(async move {
         if let Err(e) = connection.await {
             tracing::error!("[DB] Database connection error: {e}");
         }
     });
-    migrations::runner().run_async(&mut client).await?;
 
     Ok(Database { pool })
 }

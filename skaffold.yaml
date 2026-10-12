@@ -1,0 +1,52 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: gilvave-server
+
+manifests:
+  kustomize:
+    paths:
+      - k8s/overlays/dev
+
+deploy:
+  statusCheck: false
+  kubectl: {}
+
+portForward:
+  - resourceType: service
+    resourceName: postgres-external
+    namespace: gilvave
+    port: 5432
+    localPort: 5432
+  - resourceType: service
+    resourceName: redis
+    namespace: gilvave
+    port: 6379
+    localPort: 6379
+  - resourceType: service
+    resourceName: rabbitmq
+    namespace: gilvave
+    port: 5672
+    localPort: 5672
+  - resourceType: service
+    resourceName: rabbitmq
+    namespace: gilvave
+    port: 15672
+    localPort: 15672
+  - resourceType: service
+    resourceName: s3
+    namespace: gilvave
+    port: 8333
+    localPort: 8333
+  - resourceType: service
+    resourceName: admin
+    namespace: gilvave
+    port: 23646
+    localPort: 23646
+
+profiles:
+  - name: prod
+    manifests:
+      kustomize:
+        paths:
+          - k8s/overlays/prod

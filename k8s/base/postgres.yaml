@@ -1,0 +1,56 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  storage:
+    size: 10Gi
+  bootstrap:
+    initdb:
+      database: PLACEHOLDER
+      owner: PLACEHOLDER
+      secret:
+        name: postgres-user-secret
+  # ПОСТОЯННАЯ АРХИВАЦИЯ WAL В S3 (включается на проде)
+  # backup:
+  #   retentionPolicy: "3d"
+  #   barmanObjectStore:
+  #     destinationPath: s3://postgres-backups/
+  #     endpointURL: http://s3:8333
+  #     s3Credentials:
+  #       accessKeyId:
+  #         name: seaweedfs-s3-secrets
+  #         key: ACCESS_KEY
+  #       secretAccessKey:
+  #         name: seaweedfs-s3-secrets
+  #         key: SECRET_KEY
+  #     wal:
+  #       compression: gzip
+  #       maxParallel: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-external
+spec:
+  type: LoadBalancer
+  selector:
+    cnpg.io/cluster: postgres
+    cnpg.io/instanceRole: primary
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+# АВТОМАТИЧЕСКИЙ БЭКАП ПО РАСПИСАНИЮ (включается на проде вместе с блоком backup)
+# ---
+# apiVersion: postgresql.cnpg.io/v1
+# kind: ScheduledBackup
+# metadata:
+#   name: postgres-daily-backup
+# spec:
+#   schedule: "0 3 * * *"
+#   backupOwnerReference: self
+#   cluster:
+#     name: postgres
