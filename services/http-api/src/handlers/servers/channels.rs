@@ -5,7 +5,7 @@ use axum::{
 
 use crate::state::AppState;
 use gilvave_core::{
-    dto::channel::*,
+    dto::servers::channels::*,
     error::{CoreError, DatabaseError},
     ids::{ChannelId, ServerId, UserId},
 };
@@ -23,10 +23,7 @@ where
 {
     let (server_id, channel_id) = path;
 
-    let is_owned = state
-        .server_service
-        .is_user_owned(user_id, server_id)
-        .await?;
+    let is_owned = state.servers.is_user_owned(user_id, server_id).await?;
 
     if !is_owned {
         return Err(CoreError::Forbidden(
@@ -41,9 +38,7 @@ pub async fn get_all(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<ChannelView>>, CoreError> {
-    Ok(Json(
-        state.channel_service.get_server_channels(server_id).await?,
-    ))
+    Ok(Json(state.servers.channels.get_server_channels(server_id).await?))
 }
 
 pub async fn create(
@@ -52,7 +47,7 @@ pub async fn create(
     AuthUser(_): AuthUser,
     Json(info): Json<CreateInfo>,
 ) -> Result<Json<ChannelView>, CoreError> {
-    Ok(Json(state.channel_service.create(server_id, info).await?))
+    Ok(Json(state.servers.channels.create(server_id, info).await?))
 }
 
 pub async fn update_name(
@@ -62,9 +57,7 @@ pub async fn update_name(
     Json(name): Json<NameUpdate>,
 ) -> Result<Json<ChannelView>, CoreError> {
     let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
-        state
-            .channel_service
-            .update_name(server_id, channel_id, name)
+        state.servers.channels.update_name(server_id, channel_id, name)
     })
     .await?;
 
@@ -79,7 +72,7 @@ pub async fn update_position(
 ) -> Result<Json<ChannelView>, CoreError> {
     let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
         state
-            .channel_service
+            .servers.channels
             .update_position(server_id, channel_id, position)
     })
     .await?;

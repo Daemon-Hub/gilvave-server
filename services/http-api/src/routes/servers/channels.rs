@@ -3,7 +3,7 @@ use axum::{
     routing::{get, patch},
 };
 
-use crate::{handlers::channel::*, state::AppState};
+use crate::{handlers::servers::channels::*, state::AppState};
 
 pub fn routes(state: AppState) -> Router {
     Router::new()

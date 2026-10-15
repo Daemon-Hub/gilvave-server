@@ -3,8 +3,8 @@ use axum::{
     http::{HeaderMap, header, request::Parts},
 };
 
-use crate::{jwt::verify_jwt, service::user::UserService};
-use gilvave_core::{dto::user::User, error::CoreError};
+use crate::{jwt::verify_jwt, services::users::UsersService};
+use gilvave_core::{dto::users::User, error::CoreError};
 
 pub fn extract_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
     for val in headers.get_all(header::COOKIE) {
@@ -41,7 +41,7 @@ pub struct AuthUser(pub User);
 impl<S> FromRequestParts<S> for AuthUser
 where
     S: Send + Sync,
-    UserService: FromRef<S>,
+    UsersService: FromRef<S>,
 {
     type Rejection = CoreError;
 
@@ -82,9 +82,10 @@ where
         let payload =
             verify_jwt(&token).map_err(|_| CoreError::Unauthorized("Invalid token".to_string()))?;
 
-        let user_service = UserService::from_ref(state);
+        let user_service = UsersService::from_ref(state);
 
         let is_blacklisted = user_service
+            .sessions
             .is_token_blacklisted(&payload.jti)
             .await
             .map_err(|_| {

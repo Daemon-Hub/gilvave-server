@@ -1,17 +1,19 @@
+pub mod channels;
+
 use axum::{
     Json,
     extract::{Path, State},
 };
 
 use crate::state::AppState;
-use gilvave_core::{dto::server::*, error::CoreError, ids::ServerId};
+use gilvave_core::{dto::servers::*, error::CoreError, ids::ServerId};
 use gilvave_infra::security::auth::AuthUser;
 
 pub async fn get_user_servers(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
 ) -> Result<Json<Vec<ServerSmallPart>>, CoreError> {
-    let servers = state.server_service.retrieve_user_servers(user.id).await?;
+    let servers = state.servers.retrieve_user_servers(user.id).await?;
     Ok(Json(servers))
 }
 
@@ -20,18 +22,14 @@ pub async fn get_server_by_id(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
 ) -> Result<Json<Server>, CoreError> {
-    Ok(Json(
-        state.server_service.get_by_id(server_id, user.id).await?,
-    ))
+    Ok(Json(state.servers.get_by_id(server_id, user.id).await?))
 }
 
 pub async fn get_public_servers(
     Path(page): Path<i64>,
     State(state): State<AppState>,
 ) -> Result<Json<(Vec<Server>, bool)>, CoreError> {
-    Ok(Json(
-        state.server_service.get_public((page - 1) * 20).await?,
-    ))
+    Ok(Json(state.servers.get_public((page - 1) * 20).await?))
 }
 
 pub async fn create_server(
@@ -39,7 +37,7 @@ pub async fn create_server(
     AuthUser(user): AuthUser,
     Json(info): Json<ServerCreateInfo>,
 ) -> Result<Json<Server>, CoreError> {
-    Ok(Json(state.server_service.create(info, user.id).await?))
+    Ok(Json(state.servers.create(info, user.id).await?))
 }
 
 /*
@@ -55,7 +53,7 @@ pub async fn join_public(
     AuthUser(user): AuthUser,
 ) -> Result<(), CoreError> {
     state
-        .server_service
+        .servers
         .add_user(JoinInfo {
             server_id,
             user_id: user.id,
@@ -69,5 +67,5 @@ pub async fn get_members(
     State(state): State<AppState>,
     AuthUser(_): AuthUser,
 ) -> Result<Json<Vec<MemberView>>, CoreError> {
-    Ok(Json(state.server_service.get_members(server_id).await?))
+    Ok(Json(state.servers.get_members(server_id).await?))
 }

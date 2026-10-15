@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{events::ServerEvent, state::AppState};
-use gilvave_core::dto::user::User;
+use gilvave_core::dto::users::User;
 
 #[async_trait::async_trait]
 pub trait EventHandler {

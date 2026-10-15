@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{events::ServerEvent, state::AppState};
-use gilvave_core::dto::message::MessageView;
+use gilvave_core::dto::messages::MessageView;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "op", content = "d")]

@@ -1,32 +1,39 @@
 use axum::extract::FromRef;
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
-use gilvave_infra::{db::Database, service::*};
+use gilvave_infra::{db::Database, services::*};
 use gilvave_s3::S3;
 
 #[derive(Clone)]
-pub struct AppState {
-    pub user_service: UserService,
-    pub session_service: SessionService,
-    pub server_service: ServerService,
-    pub channel_service: ChannelService,
+pub struct AppState(Arc<AppStateInner>);
+
+pub struct AppStateInner {
+    pub users: UsersService,
+    pub servers: ServersService,
     pub s3: S3,
 }
 
 impl AppState {
     pub async fn new(db: Arc<Database>) -> Self {
-        Self {
-            user_service: UserService { db: db.clone() },
-            session_service: SessionService { db: db.clone() },
-            server_service: ServerService { db: db.clone() },
-            channel_service: ChannelService { db: db.clone() },
+        let inner = AppStateInner {
+            users: UsersService::new(db.clone()),
+            servers: ServersService::new(db.clone()),
             s3: S3::new().await,
-        }
+        };
+        Self(Arc::new(inner))
     }
 }
 
-impl FromRef<AppState> for UserService {
+impl Deref for AppState {
+    type Target = AppStateInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl FromRef<AppState> for UsersService {
     fn from_ref(app_state: &AppState) -> Self {
-        app_state.user_service.clone()
+        app_state.0.users.clone()
     }
 }

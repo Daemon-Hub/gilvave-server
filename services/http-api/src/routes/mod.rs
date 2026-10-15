@@ -1,6 +1,5 @@
-mod server;
-mod user;
-mod channel;
+mod servers;
+mod users;
 
 use axum::Router;
 
@@ -8,6 +7,6 @@ use crate::state::AppState;
 
 pub fn routes(state: AppState) -> Router {
     Router::new()
-        .nest("/users", user::routes(state.clone()))
-        .nest("/servers", server::routes(state.clone()))
+        .nest("/users", users::routes(state.clone()))
+        .nest("/servers", servers::routes(state.clone()))
 }

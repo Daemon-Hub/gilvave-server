@@ -1,18 +1,28 @@
+pub mod channels;
+
 use std::sync::Arc;
 
 use crate::db::Database;
 use gilvave_core::{
-    dto::server::*,
+    dto::servers::*,
     error::DatabaseError,
     ids::{ServerId, UserId},
 };
 
 #[derive(Clone)]
-pub struct ServerService {
+pub struct ServersService {
     pub db: Arc<Database>,
+    pub channels: channels::ChannelsService,
 }
 
-impl ServerService {
+impl ServersService {
+    pub fn new(db: Arc<Database>) -> Self {
+        Self {
+            db: db.clone(),
+            channels: channels::ChannelsService { db: db.clone() },
+        }
+    }
+
     pub async fn create(
         &self,
         info: ServerCreateInfo,
@@ -150,7 +160,7 @@ impl ServerService {
                 ON CONFLICT (server_id, user_id) DO NOTHING;
                 "#,
                 &[&info.server_id.0, &info.user_id.0],
-            )   
+            )
             .await?;
         Ok(())
     }

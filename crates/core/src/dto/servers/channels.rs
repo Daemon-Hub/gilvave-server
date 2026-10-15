@@ -70,5 +70,4 @@ pub struct ChannelView {
     pub r#type: ChannelType,
     pub position: i32,
 }
-
 from_row!(ChannelView, id, name, r#type, position);

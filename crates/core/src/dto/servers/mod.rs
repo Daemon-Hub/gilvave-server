@@ -1,3 +1,5 @@
+pub mod channels;
+
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 

@@ -10,7 +10,7 @@ use crate::events::ServerEvent;
 use gilvave_core::ids::{ChannelId, UserId};
 use gilvave_infra::{
     db::Database,
-    service::{MessageService, ServerService, UserService},
+    services::{MessagesService, ServersService, UsersService},
 };
 use gilvave_messaging::RabbitClient;
 use gilvave_redis::RedisService;
@@ -33,9 +33,9 @@ pub struct AppState {
     // Сервисы и клиенты
     pub redis: RedisService,
     pub broker: RabbitClient,
-    pub user_service: UserService,
-    pub message_service: MessageService,
-    pub server_service: ServerService,
+    pub user_service: UsersService,
+    pub message_service: MessagesService,
+    pub server_service: ServersService,
 }
 
 impl AppState {
@@ -47,14 +47,14 @@ impl AppState {
             channels: Arc::new(RwLock::new(HashMap::new())),
             redis: RedisService::new().await.unwrap(),
             broker: RabbitClient::new(&node_id.to_string()).await.unwrap(),
-            user_service: UserService { db: db.clone() },
-            message_service: MessageService { db: db.clone() },
-            server_service: ServerService { db: db.clone() },
+            user_service: UsersService { db: db.clone() },
+            message_service: MessagesService { db: db.clone() },
+            server_service: ServersService { db: db.clone() },
         }
     }
 }
 
-impl FromRef<AppState> for UserService {
+impl FromRef<AppState> for UsersService {
     fn from_ref(state: &AppState) -> Self {
         state.user_service.clone()
     }

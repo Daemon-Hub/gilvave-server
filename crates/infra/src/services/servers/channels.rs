@@ -2,17 +2,17 @@ use std::sync::Arc;
 
 use crate::db::Database;
 use gilvave_core::{
-    dto::channel::*,
+    dto::servers::channels::*,
     error::DatabaseError,
     ids::{ChannelId, ServerId},
 };
 
 #[derive(Clone)]
-pub struct ChannelService {
+pub struct ChannelsService {
     pub db: Arc<Database>,
 }
 
-impl ChannelService {
+impl ChannelsService {
     pub async fn create(
         &self,
         server_id: ServerId,

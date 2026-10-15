@@ -6,8 +6,8 @@ use crate::{
     state::AppState,
 };
 use gilvave_core::{
-    dto::message::{CreateInfo, GetHistoryInfo},
-    dto::user::User,
+    dto::messages::{CreateInfo, GetHistoryInfo},
+    dto::users::User,
     ids::ChannelId,
 };
 

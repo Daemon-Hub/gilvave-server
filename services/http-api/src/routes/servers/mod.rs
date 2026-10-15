@@ -1,9 +1,11 @@
+pub mod channels;
+
 use axum::{
     Router,
     routing::{get, post},
 };
 
-use crate::{handlers::server::*, routes::channel, state::AppState};
+use crate::{handlers::servers::*, state::AppState};
 
 pub fn routes(state: AppState) -> Router {
     Router::new()
@@ -14,5 +16,5 @@ pub fn routes(state: AppState) -> Router {
         .route("/{server_id}/members", get(get_members))
         .with_state(state.clone())
         // Подгруппа для каналов
-        .nest("/{server_id}/channels", channel::routes(state))
+        .nest("/{server_id}/channels", channels::routes(state))
 }

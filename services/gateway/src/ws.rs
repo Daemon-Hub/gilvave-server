@@ -10,7 +10,7 @@ use crate::dispatch_event;
 use crate::events::{ClientEvent, EventHandler, ServerEvent};
 use crate::state::AppState;
 
-use gilvave_core::{dto::user::User, ids::UserId};
+use gilvave_core::{dto::users::User, ids::UserId};
 use gilvave_infra::security::auth::AuthUser;
 
 pub async fn ws_handler(

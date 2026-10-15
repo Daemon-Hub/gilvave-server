@@ -4,9 +4,10 @@ CREATE TABLE sessions (
     refresh_token_hash BYTEA NOT NULL,
     device_info JSONB NOT NULL,
     ip_address INET NOT NULL,
+    location VARCHAR(128) NULL,
+    last_used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
-    last_used_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_sessions_user_id ON sessions (user_id);

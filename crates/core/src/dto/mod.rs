@@ -1,7 +1,6 @@
-pub mod channel;
-pub mod message;
-pub mod server;
-pub mod user;
+pub mod messages;
+pub mod servers;
+pub mod users;
 
 #[macro_export]
 macro_rules! from_row {

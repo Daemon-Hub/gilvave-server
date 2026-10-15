@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use gilvave_core::dto::message::MessageView;
+use gilvave_core::dto::messages::MessageView;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op", content = "d")]

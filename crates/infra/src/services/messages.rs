@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use crate::db::Database;
-use gilvave_core::{dto::message::*, error::DatabaseError, ids::MessageId};
+use gilvave_core::{dto::messages::*, error::DatabaseError, ids::MessageId};
 
 #[derive(Clone)]
-pub struct MessageService {
+pub struct MessagesService {
     pub db: Arc<Database>,
 }
 
-impl MessageService {
+impl MessagesService {
     pub async fn create(&self, info: CreateInfo) -> Result<MessageView, DatabaseError> {
         let row = self
             .db
