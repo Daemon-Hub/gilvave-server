@@ -1,17 +1,20 @@
 pub mod channels;
 
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Path, State},
 };
 
 use crate::state::AppState;
-use gilvave_core::{dto::servers::*, error::CoreError, ids::ServerId};
-use gilvave_infra::security::auth::AuthUser;
+use gilvave_core::{
+    dto::{servers::*, users::User},
+    error::CoreError,
+    ids::ServerId,
+};
 
 pub async fn get_user_servers(
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
+    Extension(user): Extension<User>,
 ) -> Result<Json<Vec<ServerSmallPart>>, CoreError> {
     let servers = state.servers.retrieve_user_servers(user.id).await?;
     Ok(Json(servers))
@@ -20,7 +23,7 @@ pub async fn get_user_servers(
 pub async fn get_server_by_id(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
+    Extension(user): Extension<User>,
 ) -> Result<Json<Server>, CoreError> {
     Ok(Json(state.servers.get_by_id(server_id, user.id).await?))
 }
@@ -34,7 +37,7 @@ pub async fn get_public_servers(
 
 pub async fn create_server(
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
+    Extension(user): Extension<User>,
     Json(info): Json<ServerCreateInfo>,
 ) -> Result<Json<Server>, CoreError> {
     Ok(Json(state.servers.create(info, user.id).await?))
@@ -50,7 +53,7 @@ pub async fn create_server(
 pub async fn join_public(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
+    Extension(user): Extension<User>,
 ) -> Result<(), CoreError> {
     state
         .servers
@@ -65,7 +68,6 @@ pub async fn join_public(
 pub async fn get_members(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
-    AuthUser(_): AuthUser,
 ) -> Result<Json<Vec<MemberView>>, CoreError> {
     Ok(Json(state.servers.get_members(server_id).await?))
 }

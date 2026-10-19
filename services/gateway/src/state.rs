@@ -33,9 +33,9 @@ pub struct AppState {
     // Сервисы и клиенты
     pub redis: RedisService,
     pub broker: RabbitClient,
-    pub user_service: UsersService,
-    pub message_service: MessagesService,
-    pub server_service: ServersService,
+    pub users_service: UsersService,
+    pub messages_service: MessagesService,
+    pub servers_service: ServersService,
 }
 
 impl AppState {
@@ -47,15 +47,15 @@ impl AppState {
             channels: Arc::new(RwLock::new(HashMap::new())),
             redis: RedisService::new().await.unwrap(),
             broker: RabbitClient::new(&node_id.to_string()).await.unwrap(),
-            user_service: UsersService { db: db.clone() },
-            message_service: MessagesService { db: db.clone() },
-            server_service: ServersService { db: db.clone() },
+            users_service: UsersService::new(db.clone()),
+            messages_service: MessagesService { db: db.clone() },
+            servers_service: ServersService::new(db),
         }
     }
 }
 
 impl FromRef<AppState> for UsersService {
     fn from_ref(state: &AppState) -> Self {
-        state.user_service.clone()
+        state.users_service.clone()
     }
 }

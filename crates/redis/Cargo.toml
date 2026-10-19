@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-fred = { version = "10", features = ["enable-rustls"] }
+fred.workspace = true
 
 gilvave-core = { path = "../core" }
 gilvave-settings = { path = "../settings" }

@@ -21,9 +21,9 @@ pub struct SessionIds {
 }
 from_row!(SessionIds, id, user_id);
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct SessionView {
-    pub id: String,
+    pub id: SessionId,
     pub device_info: serde_json::Value,
     pub ip_address: Option<String>,
     pub location: Option<String>,

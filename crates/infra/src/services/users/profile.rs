@@ -2,10 +2,7 @@ use bytes::Bytes;
 use image::ImageFormat;
 use std::{io::Cursor, sync::Arc};
 
-use gilvave_core::{
-    dto::users::profile::{Avatar, UpdateAvatarInfo},
-    error::*,
-};
+use gilvave_core::{dto::users::profile::Avatar, error::*, ids::UserId};
 
 use crate::db::Database;
 
@@ -15,14 +12,16 @@ pub struct ProfileService {
 }
 
 impl ProfileService {
-    pub async fn update_avatar(&self, info: UpdateAvatarInfo) -> Result<(), DatabaseError> {
+    pub async fn update_avatar(&self, user_id: UserId, url: &str) -> Result<(), DatabaseError> {
         self.db
             .execute(
                 r#"
-                UPDATE users SET avatar = $2
-                WHERE id = $1;
+                INSERT INTO profile (user_id, name, avatar, settings)
+                VALUES ($1, '', $2, '{}'::jsonb)
+                ON CONFLICT (user_id)
+                DO UPDATE SET avatar = EXCLUDED.avatar;
                 "#,
-                &[&info.user_id.0, &info.url],
+                &[&user_id, &url],
             )
             .await?;
         Ok(())

@@ -1,7 +1,7 @@
 use fred::error::Error as RedisError;
 use fred::prelude::*;
 
-use gilvave_core::ids::{ServerId, UserId};
+use gilvave_core::ids::{ServerId, SessionId, UserId};
 use gilvave_settings::settings;
 
 #[derive(Clone)]
@@ -68,5 +68,45 @@ impl RedisService {
 
         trx.exec::<()>(true).await?;
         Ok(())
+    }
+
+    /// Добавить сессию в черный список
+    pub async fn revoke_session(&self, session_id: SessionId, exp: i64) -> Result<(), RedisError> {
+        let key = format!("blacklist:{session_id}");
+
+        self.pool
+            .set::<(), String, _>(key, 1, Some(Expiration::EXAT(exp)), None, false)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Добавить массив сессий в черный список
+    pub async fn revoke_sessions_list(&self, sids: Vec<SessionId>) -> Result<(), RedisError> {
+        let trx = self.pool.multi();
+
+        for sid in sids {
+            trx.set::<(), String, _>(
+                format!("blacklist:{sid}"),
+                1,
+                Some(Expiration::EXAT(settings!().access_token_expire())),
+                None,
+                false,
+            )
+            .await?;
+        }
+
+        trx.exec::<()>(true).await?;
+        Ok(())
+    }
+
+    /// Проверяет есть ли сессия в черном списке и возвращает true/false
+    pub async fn get_session_revocation_status(
+        &self,
+        session_id: SessionId,
+    ) -> Result<bool, RedisError> {
+        let key = format!("blacklist:{session_id}");
+        let res = self.pool.exists::<bool, String>(key).await?;
+        Ok(res)
     }
 }

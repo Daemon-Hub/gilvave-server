@@ -1,15 +1,14 @@
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Path, State},
 };
 
 use crate::state::AppState;
 use gilvave_core::{
-    dto::servers::channels::*,
+    dto::{servers::channels::*, users::User},
     error::{CoreError, DatabaseError},
     ids::{ChannelId, ServerId, UserId},
 };
-use gilvave_infra::security::auth::AuthUser;
 
 async fn with_channel_permissions<F, Fut>(
     state: &AppState,
@@ -38,13 +37,18 @@ pub async fn get_all(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<ChannelView>>, CoreError> {
-    Ok(Json(state.servers.channels.get_server_channels(server_id).await?))
+    Ok(Json(
+        state
+            .servers
+            .channels
+            .get_server_channels(server_id)
+            .await?,
+    ))
 }
 
 pub async fn create(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
-    AuthUser(_): AuthUser,
     Json(info): Json<CreateInfo>,
 ) -> Result<Json<ChannelView>, CoreError> {
     Ok(Json(state.servers.channels.create(server_id, info).await?))
@@ -53,11 +57,14 @@ pub async fn create(
 pub async fn update_name(
     Path(path): Path<(ServerId, ChannelId)>,
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
+    Extension(user): Extension<User>,
     Json(name): Json<NameUpdate>,
 ) -> Result<Json<ChannelView>, CoreError> {
     let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
-        state.servers.channels.update_name(server_id, channel_id, name)
+        state
+            .servers
+            .channels
+            .update_name(server_id, channel_id, name)
     })
     .await?;
 
@@ -67,12 +74,13 @@ pub async fn update_name(
 pub async fn update_position(
     Path(path): Path<(ServerId, ChannelId)>,
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
+    Extension(user): Extension<User>,
     Json(position): Json<PositionUpdate>,
 ) -> Result<Json<ChannelView>, CoreError> {
     let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
         state
-            .servers.channels
+            .servers
+            .channels
             .update_position(server_id, channel_id, position)
     })
     .await?;

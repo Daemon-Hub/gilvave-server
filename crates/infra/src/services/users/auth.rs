@@ -4,7 +4,7 @@ use argon2::{
 };
 use std::sync::Arc;
 
-use gilvave_core::{error::*, ids::UserId};
+use gilvave_core::{dto::users::auth::CreateUserInfo, error::*, ids::UserId};
 
 use crate::db::Database;
 
@@ -37,12 +37,8 @@ impl AuthService {
         argon2.verify_password(password.as_bytes(), &parsed).is_ok()
     }
 
-    pub async fn create(
-        &self,
-        username: &str,
-        email: &str,
-        password: &str,
-    ) -> Result<(), DatabaseError> {
+    pub async fn create(&self, info: CreateUserInfo) -> Result<(), DatabaseError> {
+        let user_id = UserId::default();
         self.db
             .execute(
                 r#"
@@ -50,13 +46,24 @@ impl AuthService {
                 VALUES ($1, $2, $3, $4);
                 "#,
                 &[
-                    &UserId::default().0,
-                    &username,
-                    &email,
-                    &self.hash_password(password),
+                    &user_id,
+                    &info.username,
+                    &info.email,
+                    &self.hash_password(&info.password),
                 ],
             )
             .await?;
+
+        self.db
+            .execute(
+                r#"
+                INSERT INTO profile (user_id, name, bio, avatar, settings)
+                VALUES ($1, $2, '', '', '{}'::jsonb);
+                "#,
+                &[&user_id, &info.username],
+            )
+            .await?;
+
         Ok(())
     }
 }

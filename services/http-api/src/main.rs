@@ -12,7 +12,7 @@ use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use gilvave_infra::db::init_db;
 use gilvave_settings::setup_settings;
 
-use crate::middleware::client_ip_middleware;
+use crate::middleware::{client_ip_middleware, tracing_middleware};
 use crate::state::AppState;
 
 #[global_allocator]
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let db = Arc::new(init_db().await?);
     db.warmup(5).await;
 
-    let state = AppState::new(db).await;
+    let state = AppState::new(db).await?;
 
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::mirror_request())
@@ -40,13 +40,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true);
 
-    let app = routes::routes(state)
+    let app = routes::routes(state.clone())
         .layer(axum::middleware::from_fn(client_ip_middleware))
+        .layer(axum::middleware::from_fn(tracing_middleware))
         .layer(cors)
         .into_make_service_with_connect_info::<SocketAddr>();
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
-    tracing::info!("[REST-API] Running on http://localhost:3000");
+    tracing::info!("[REST-API] Running on http://127.0.0.1:3000");
 
     axum::serve(listener, app).await?;
 

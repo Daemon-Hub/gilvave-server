@@ -1,29 +1,29 @@
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Multipart, State},
 };
 
 use gilvave_core::{
-    dto::users::{UserView, profile::*},
+    dto::users::{User, UserView, profile::*},
     error::CoreError,
 };
-use gilvave_infra::security::auth::AuthUser;
 
 use crate::state::AppState;
 
-pub async fn get_profile(AuthUser(user): AuthUser) -> Json<UserView> {
+pub async fn get_profile(Extension(user): Extension<User>) -> Json<UserView> {
     Json(UserView {
         id: user.id,
         username: user.username,
         email: user.email,
         is_active: user.is_active,
         avatar: user.avatar,
+        bio: user.bio,
     })
 }
 
 pub async fn update_avatar(
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
+    Extension(user): Extension<User>,
     mut multipart: Multipart,
 ) -> Result<Json<AvatarUrl>, CoreError> {
     let avatar = if let Some(field) = multipart.next_field().await.unwrap_or(None)
@@ -56,14 +56,7 @@ pub async fn update_avatar(
         .await
         .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
 
-    state
-        .users
-        .profile
-        .update_avatar(UpdateAvatarInfo {
-            user_id: user.id,
-            url: url.to_owned(),
-        })
-        .await?;
+    state.users.profile.update_avatar(user.id, &url).await?;
 
     Ok(Json(AvatarUrl { url }))
 }

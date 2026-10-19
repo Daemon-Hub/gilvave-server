@@ -1,9 +1,9 @@
 use maxminddb::{self as mmdb, geoip2};
 use std::{net::IpAddr, sync::Arc};
 
-use crate::{db::Database, jwt::verify_jwt};
+use crate::{db::Database, security::jwt::verify_jwt};
 use gilvave_core::{
-    dto::users::sessions::{SessionCreateInfo, SessionIds, SessionView, BlacklistInfo},
+    dto::users::sessions::{BlacklistInfo, SessionCreateInfo, SessionIds, SessionView},
     error::DatabaseError,
     ids::{SessionId, UserId},
 };
@@ -18,7 +18,7 @@ pub struct SessionsService {
 
 impl SessionsService {
     pub fn new(db: Arc<Database>) -> Self {
-        let reader = mmdb::Reader::open_readfile("~/GeoLite2-City.mmdb");
+        let reader = mmdb::Reader::open_readfile(r"C:\Users\KIM\GeoLite2-City.mmdb");
 
         let geo_reader = if let Ok(r) = reader {
             tracing::info!("✓ GeoIP база успешно загружена");
@@ -113,17 +113,42 @@ impl SessionsService {
         Ok(row.try_get(0)?)
     }
 
-    pub async fn delete(&self, user_id: UserId) -> Result<(), DatabaseError> {
+    pub async fn delete_by_id(
+        &self,
+        user_id: UserId,
+        session_id: SessionId,
+    ) -> Result<(), DatabaseError> {
         self.db
             .execute(
                 r#"
                 DELETE FROM sessions
-                WHERE user_id = $1;
+                WHERE user_id = $1 AND id = $2;
                 "#,
-                &[&user_id],
+                &[&user_id, &session_id],
             )
             .await?;
         Ok(())
+    }
+
+    pub async fn delete_all_other(
+        &self,
+        user_id: UserId,
+        session_id: SessionId,
+    ) -> Result<Vec<SessionId>, DatabaseError> {
+        Ok(self
+            .db
+            .query(
+                r#"
+                DELETE FROM sessions
+                WHERE user_id = $1 AND id != $2
+                RETURNING id;
+                "#,
+                &[&user_id, &session_id],
+            )
+            .await?
+            .iter()
+            .map(|r| r.get(0))
+            .collect::<Vec<SessionId>>())
     }
 
     pub async fn update(
@@ -152,25 +177,28 @@ impl SessionsService {
         Ok(())
     }
 
-    pub async fn get_list(&self, user_id: UserId) -> Result<Vec<SessionView>, DatabaseError> {
+    pub async fn get_list(
+        &self,
+        user_id: UserId,
+        session_id: SessionId,
+    ) -> Result<Vec<(SessionView, bool)>, DatabaseError> {
         let rows = self
             .db
             .query(
                 r#"
-                SELECT id, device_info, ip_address, location, last_used_at, created_at
+                SELECT id, device_info, HOST(ip_address) AS ip_address, location, COALESCE(last_used_at, created_at) AS last_used_at, created_at
                 FROM sessions
-                WHERE user_id = $1;
+                WHERE user_id = $1
+                ORDER BY created_at DESC;
                 "#,
                 &[&user_id],
             )
             .await?;
-
         let mut sessions = Vec::new();
         for row in rows {
-            if let Ok(session) = SessionView::from_row(&row) {
-                // pub is_current: bool,
-                sessions.push(session);
-            }
+            let session = SessionView::from_row(&row)?;
+            let sid = session.id;
+            sessions.push((session, session_id == sid));
         }
         Ok(sessions)
     }

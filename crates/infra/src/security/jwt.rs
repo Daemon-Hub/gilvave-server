@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use gilvave_settings::settings;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: UserId,
     pub sid: SessionId,

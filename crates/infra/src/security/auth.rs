@@ -3,7 +3,10 @@ use axum::{
     http::{HeaderMap, header, request::Parts},
 };
 
-use crate::{jwt::verify_jwt, services::users::UsersService};
+use crate::{
+    security::jwt::{Claims, verify_jwt},
+    services::users::UsersService,
+};
 use gilvave_core::{dto::users::User, error::CoreError};
 
 pub fn extract_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -36,7 +39,7 @@ fn extract_query_token(query: &str) -> Option<String> {
 }
 
 #[derive(Clone)]
-pub struct AuthUser(pub User);
+pub struct AuthUser(pub User, pub Claims);
 
 impl<S> FromRequestParts<S> for AuthUser
 where
@@ -82,9 +85,9 @@ where
         let payload =
             verify_jwt(&token).map_err(|_| CoreError::Unauthorized("Invalid token".to_string()))?;
 
-        let user_service = UsersService::from_ref(state);
+        let users = UsersService::from_ref(state);
 
-        let is_blacklisted = user_service
+        let is_blacklisted = users
             .sessions
             .is_token_blacklisted(&payload.jti)
             .await
@@ -97,7 +100,7 @@ where
             return Err(CoreError::Unauthorized("Token is blacklisted".to_string()));
         }
 
-        let user = user_service
+        let user = users
             .find_by_id(payload.sub)
             .await
             .map_err(|_| {
@@ -109,6 +112,6 @@ where
             return Err(CoreError::Unauthorized("User is inactive".to_string()));
         }
 
-        Ok(Self(user))
+        Ok(Self(user, payload))
     }
 }

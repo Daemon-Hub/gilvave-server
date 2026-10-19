@@ -16,7 +16,7 @@ use gilvave_infra::security::auth::AuthUser;
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
+    AuthUser(user, _): AuthUser,
 ) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, user, state))
 }
@@ -52,7 +52,7 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
                 .set_user_online(
                     user.id,
                     state
-                        .server_service
+                        .servers_service
                         .retrieve_user_servers(user.id)
                         .await
                         .unwrap_or(vec![])
@@ -122,7 +122,7 @@ async fn cleanup_user(
                 .del_user_online(
                     user_id,
                     state
-                        .server_service
+                        .servers_service
                         .retrieve_user_servers(user_id)
                         .await
                         .unwrap_or(vec![])

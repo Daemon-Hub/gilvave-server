@@ -3,6 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use fred::error::Error as RedisError;
 
 pub enum CoreError {
     /// 401 Несанкционированный доступ
@@ -26,7 +27,7 @@ pub enum CoreError {
 
 impl IntoResponse for CoreError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
+        let (status, message) = match &self {
             CoreError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             CoreError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             CoreError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
@@ -34,7 +35,10 @@ impl IntoResponse for CoreError {
             CoreError::UnsupportedMediaType(msg) => (StatusCode::UNSUPPORTED_MEDIA_TYPE, msg),
             CoreError::UnprocessableEntity(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg),
             CoreError::PayloadTooLarge(msg) => (StatusCode::PAYLOAD_TOO_LARGE, msg),
-            CoreError::InternalServerError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            CoreError::InternalServerError(msg) => {
+                tracing::error!("[500 InternalServerError]: {msg}");
+                (StatusCode::INTERNAL_SERVER_ERROR, msg)
+            }
         };
 
         (status, Json(serde_json::json!({"error": message}))).into_response()
@@ -43,6 +47,7 @@ impl IntoResponse for CoreError {
 
 impl From<DatabaseError> for CoreError {
     fn from(err: DatabaseError) -> Self {
+        tracing::error!("[DatabaseError -> CoreError]: {err}");
         CoreError::InternalServerError(err.to_string())
     }
 }
@@ -77,11 +82,24 @@ impl std::fmt::Display for DatabaseError {
             DatabaseError::Pool(e) => write!(f, "Database pool error: {e}"),
             DatabaseError::Postgres(e) => {
                 if let Some(d) = e.as_db_error() {
-                    write!(f, "PostgreSQL error: code={}, message={}, detail={:?}, constraint={:?}", d.code().code(), d.message(), d.detail(), d.constraint())
+                    write!(
+                        f,
+                        "PostgreSQL error: code={}, message={}, detail={:?}, constraint={:?}",
+                        d.code().code(),
+                        d.message(),
+                        d.detail(),
+                        d.constraint()
+                    )
                 } else {
                     write!(f, "PostgreSQL error: {e:?}")
                 }
             }
         }
+    }
+}
+
+impl From<RedisError> for CoreError {
+    fn from(err: RedisError) -> Self {
+        CoreError::InternalServerError(err.to_string())
     }
 }

@@ -11,22 +11,22 @@ use std::net::IpAddr;
 
 use gilvave_core::{
     dto::users::{
-        auth::{LoginInfo, RegisterRequest},
-        sessions::{BlacklistInfo, SessionCreateInfo},
+        User,
+        auth::{CreateUserInfo, LoginInfo},
+        sessions::SessionCreateInfo,
     },
     error::CoreError,
     validation::validate_username,
 };
-use gilvave_infra::{
-    jwt::{create_jwt, generate_refresh_token, hash_refresh_token},
-    security::auth::{AuthUser, extract_cookie},
+use gilvave_infra::security::jwt::{
+    Claims, create_jwt, generate_refresh_token, hash_refresh_token,
 };
 
 use crate::{handlers::users::build_tokens_response, state::AppState};
 
 pub async fn register(
     State(state): State<AppState>,
-    Json(body): Json<RegisterRequest>,
+    Json(body): Json<CreateUserInfo>,
 ) -> Result<(), CoreError> {
     if let Err(msg) = validate_username(&body.username) {
         return Err(CoreError::BadRequest(msg.to_string()));
@@ -49,11 +49,7 @@ pub async fn register(
         ));
     }
 
-    state
-        .users
-        .auth
-        .create(&body.username, &body.email, &body.password)
-        .await?;
+    state.users.auth.create(body).await?;
 
     Ok(())
 }
@@ -103,26 +99,14 @@ pub async fn login(
 
 pub async fn logout(
     State(state): State<AppState>,
-    AuthUser(user): AuthUser,
-    headers: HeaderMap,
+    Extension(user): Extension<User>,
+    Extension(clm): Extension<Claims>,
 ) -> Result<Response, CoreError> {
-    state.users.sessions.delete(user.id).await?;
-    let token = headers
-        .get(header::AUTHORIZATION)
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer "))
-        .map(String::from)
-        .or_else(|| extract_cookie(&headers, "access_token"))
-        .ok_or_else(|| CoreError::Unauthorized("Missing authorization token".to_string()))?;
-
-    state
-        .users
-        .sessions
-        .blacklist_token(BlacklistInfo {
-            token,
-            user_id: user.id,
-        })
-        .await?;
+    let (_, res) = tokio::join!(
+        state.redis.revoke_session(clm.sid, clm.exp),
+        state.users.sessions.delete_by_id(user.id, clm.sid),
+    );
+    res?;
 
     let mut resp_headers = HeaderMap::new();
     if let Ok(val) =

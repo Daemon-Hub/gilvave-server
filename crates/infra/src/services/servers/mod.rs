@@ -170,8 +170,10 @@ impl ServersService {
         self.db
             .query(
                 r#"
-                SELECT id, username, avatar FROM users
+                SELECT users.id, users.username, COALESCE(p.avatar, '') AS avatar 
+                FROM users
                 JOIN server_members sm ON users.id = sm.user_id
+                LEFT JOIN profile p ON p.user_id = users.id
                 WHERE sm.server_id = $1;
                 "#,
                 &[&server_id.0],

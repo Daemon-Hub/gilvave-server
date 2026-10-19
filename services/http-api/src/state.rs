@@ -1,4 +1,5 @@
 use axum::extract::FromRef;
+use gilvave_redis::RedisService;
 use std::{ops::Deref, sync::Arc};
 
 use gilvave_infra::{db::Database, services::*};
@@ -11,16 +12,18 @@ pub struct AppStateInner {
     pub users: UsersService,
     pub servers: ServersService,
     pub s3: S3,
+    pub redis: RedisService,
 }
 
 impl AppState {
-    pub async fn new(db: Arc<Database>) -> Self {
+    pub async fn new(db: Arc<Database>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let inner = AppStateInner {
             users: UsersService::new(db.clone()),
             servers: ServersService::new(db.clone()),
             s3: S3::new().await,
+            redis: RedisService::new().await?,
         };
-        Self(Arc::new(inner))
+        Ok(Self(Arc::new(inner)))
     }
 }
 

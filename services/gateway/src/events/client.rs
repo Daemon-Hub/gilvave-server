@@ -60,7 +60,7 @@ impl EventHandler for ClientEvent {
                 };
 
                 match state
-                    .message_service
+                    .messages_service
                     .create(CreateInfo {
                         channel_id,
                         author_id: user.id,
@@ -120,7 +120,7 @@ impl EventHandler for ClientEvent {
                 timestamp,
             } => {
                 let history = match state
-                    .message_service
+                    .messages_service
                     .get_history_before(GetHistoryInfo {
                         channel_id,
                         timestamp,
@@ -140,7 +140,7 @@ impl EventHandler for ClientEvent {
                 timestamp,
             } => {
                 let history = match state
-                    .message_service
+                    .messages_service
                     .get_history_after(GetHistoryInfo {
                         channel_id,
                         timestamp,

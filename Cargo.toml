@@ -43,6 +43,7 @@ tokio-postgres = { version = "0.7.18", features = [
     "with-time-0_3",
 ] }
 deadpool-postgres = { version = "0.14.2", features = ["serde"] }
+fred = { version = "10", features = ["enable-rustls"] }
 
 # --- auth ---
 jsonwebtoken = { version = "11.1.0", features = ["default", "rust_crypto"] }

@@ -7,7 +7,7 @@ CREATE TABLE sessions (
     location VARCHAR(128) NULL,
     last_used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE INDEX idx_sessions_user_id ON sessions (user_id);

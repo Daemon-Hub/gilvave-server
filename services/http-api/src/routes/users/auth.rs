@@ -1,11 +1,22 @@
-use axum::{Router, routing::post};
+use axum::{Router, middleware, routing::post};
 
-use crate::{handlers::users::*, state::AppState};
+use crate::{
+    handlers::users::auth::*,
+    middleware::auth_middleware,
+    state::AppState,
+};
 
 pub fn routes(state: AppState) -> Router {
-    Router::new()
+    let public_routes = Router::new()
         .route("/register", post(register))
-        .route("/login", post(login))
+        .route("/login", post(login));
+
+    let protected_routes = Router::new()
         .route("/logout", post(logout))
-        .with_state(state.clone())
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
+
+    public_routes.merge(protected_routes).with_state(state)
 }
