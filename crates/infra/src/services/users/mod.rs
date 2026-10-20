@@ -30,10 +30,9 @@ impl UsersService {
             .db
             .query_opt(
                 r#"
-                SELECT u.id, u.username, u.email, u.password_hash, u.is_active, COALESCE(p.avatar, '') AS avatar, COALESCE(p.bio, '') AS bio
-                FROM users u
-                LEFT JOIN profile p ON p.user_id = u.id
-                WHERE u.id = $1;
+                SELECT id, username, email, password_hash, is_active, joined_at
+                FROM users
+                WHERE id = $1;
                 "#,
                 &[&user_id.0],
             )
@@ -47,10 +46,9 @@ impl UsersService {
             .db
             .query_opt(
                 r#"
-                SELECT u.id, u.username, u.email, u.password_hash, u.is_active, COALESCE(p.avatar, '') AS avatar, COALESCE(p.bio, '') AS bio
-                FROM users u
-                LEFT JOIN profile p ON p.user_id = u.id
-                WHERE LOWER(u.username) = LOWER($1);
+                SELECT id, username, email, password_hash, is_active, joined_at
+                FROM users
+                WHERE LOWER(username) = LOWER($1);
                 "#,
                 &[&username],
             )
@@ -64,10 +62,9 @@ impl UsersService {
             .db
             .query_opt(
                 r#"
-                SELECT u.id, u.username, u.email, u.password_hash, u.is_active, COALESCE(p.avatar, '') AS avatar, COALESCE(p.bio, '') AS bio
-                FROM users u
-                LEFT JOIN profile p ON p.user_id = u.id
-                WHERE u.email = $1;
+                SELECT id, username, email, password_hash, is_active, joined_at
+                FROM users
+                WHERE email = $1;
                 "#,
                 &[&email],
             )

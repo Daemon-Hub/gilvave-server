@@ -2,9 +2,12 @@ use bytes::Bytes;
 use image::ImageFormat;
 use std::{io::Cursor, sync::Arc};
 
-use gilvave_core::{dto::users::profile::Avatar, error::*, ids::UserId};
-
 use crate::db::Database;
+use gilvave_core::{
+    dto::users::profile::{Avatar, ProfileView, Theme},
+    error::*,
+    ids::UserId,
+};
 
 #[derive(Clone)]
 pub struct ProfileService {
@@ -12,6 +15,69 @@ pub struct ProfileService {
 }
 
 impl ProfileService {
+    pub async fn get_by_user_id(&self, user_id: UserId) -> Result<ProfileView, DatabaseError> {
+        let row = self
+            .db
+            .query_one(
+                r#"
+                SELECT name, bio, avatar, settings
+                FROM profile
+                WHERE user_id = $1;
+                "#,
+                &[&user_id],
+            )
+            .await?;
+        ProfileView::from_row(&row)
+    }
+
+    pub async fn get_themes_list(&self, offset: i64) -> Result<(Vec<Theme>, bool), DatabaseError> {
+        let mut rows = self
+            .db
+            .query(
+                r#"
+                SELECT * FROM themes
+                ORDER BY created_at DESC
+                LIMIT 21 OFFSET $1;
+                "#,
+                &[&offset],
+            )
+            .await?;
+
+        let has_more = rows.len() > 20;
+
+        if has_more {
+            rows.truncate(20);
+        }
+
+        let servers = rows
+            .iter()
+            .map(Theme::from_row)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok((servers, has_more))
+    }
+
+    pub async fn create_theme(&self) -> Result<(), DatabaseError> {
+        self.db
+            .execute(
+                r#"
+            INSERT INTO
+                themes (
+                    name,
+                    author,
+                    description,
+                    config,
+                    created_at,
+                    updated_at
+                )
+            VALUES ($1, $2, $3, $4, NOW(), NOW());
+            "#,
+                &[],
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_avatar(&self, user_id: UserId, url: &str) -> Result<(), DatabaseError> {
         self.db
             .execute(

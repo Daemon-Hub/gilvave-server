@@ -1,5 +1,5 @@
 CREATE TABLE files (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     name TEXT NOT NULL,
     url TEXT NOT NULL UNIQUE,
     message_id UUID NOT NULL REFERENCES messages (id) ON DELETE CASCADE,
