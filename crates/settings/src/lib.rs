@@ -1,3 +1,5 @@
+pub mod constants;
+
 use std::sync::OnceLock;
 
 pub struct Settings {
@@ -21,6 +23,11 @@ pub struct Settings {
     // JWT
     pub access_token_expire_minutes: time::Duration,
     pub refresh_token_expire_days: time::Duration,
+
+    // E-MAIL
+    pub email_validation_ttl: time::Duration,
+    pub smtp_login: &'static str,
+    pub smtp_secret: &'static str,
 }
 
 impl Settings {
@@ -42,6 +49,9 @@ impl Default for Settings {
             s3_secret_key: std::env!("S3_SECRET_KEY"),
             access_token_expire_minutes: time::Duration::minutes(20),
             refresh_token_expire_days: time::Duration::days(30),
+            email_validation_ttl: time::Duration::minutes(20),
+            smtp_login: std::env!("SMTP_LOGIN"),
+            smtp_secret: std::env!("SMTP_SECRET"),
         }
     }
 }

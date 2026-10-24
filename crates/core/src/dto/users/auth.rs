@@ -1,10 +1,24 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct CreateUserInfo {
     pub username: String,
     pub email: String,
     pub password: String,
+}
+
+impl CreateUserInfo {
+    pub fn to_slice(&self) -> Vec<u8> {
+        serde_json::to_vec(&self).unwrap()
+    }
+    pub fn from_slice(v: Vec<u8>) -> Self {
+        serde_json::from_slice(&v).unwrap()
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ConfirmParams {
+    pub token: String,
 }
 
 #[derive(Deserialize)]

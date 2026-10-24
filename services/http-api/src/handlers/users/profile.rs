@@ -1,5 +1,6 @@
 use axum::{
-    Extension, Json, extract::{Multipart, Path, State},
+    Extension, Json,
+    extract::{Multipart, Path, State},
 };
 
 use gilvave_core::{
@@ -71,4 +72,17 @@ pub async fn get_themes_list(
     Ok(Json(
         state.users.profile.get_themes_list((page - 1) * 20).await?,
     ))
+}
+
+pub async fn create_theme(
+    State(state): State<AppState>,
+    Extension(user): Extension<User>,
+    Json(body): Json<CreateThemeInfo>,
+) -> Result<(), CoreError> {
+    state
+        .users
+        .profile
+        .create_theme(user.username, body)
+        .await?;
+    Ok(())
 }

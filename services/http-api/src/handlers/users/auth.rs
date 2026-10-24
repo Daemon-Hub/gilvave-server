@@ -1,38 +1,38 @@
 use axum::{
     Extension, Json,
-    extract::State,
+    extract::{Query, State},
     http::{
         StatusCode,
         header::{self, HeaderMap, HeaderValue},
     },
-    response::{IntoResponse, Response},
+    response::{Html, IntoResponse, Response},
 };
 use std::net::IpAddr;
 
 use gilvave_core::{
     dto::users::{
         User,
-        auth::{CreateUserInfo, LoginInfo},
+        auth::{ConfirmParams, CreateUserInfo, LoginInfo},
         sessions::SessionCreateInfo,
     },
     error::CoreError,
-    validation::validate_username,
+    validation::{validate_email, validate_username},
 };
 use gilvave_infra::security::jwt::{
-    Claims, create_jwt, generate_refresh_token, hash_refresh_token,
+    Claims, create_jwt, generate_url_safe_token, hash_refresh_token,
 };
 
 use crate::{handlers::users::build_tokens_response, state::AppState};
 
-pub async fn register(
+pub async fn register_validate(
     State(state): State<AppState>,
-    Json(body): Json<CreateUserInfo>,
+    Json(mut body): Json<CreateUserInfo>,
 ) -> Result<(), CoreError> {
-    if let Err(msg) = validate_username(&body.username) {
-        return Err(CoreError::BadRequest(msg.to_string()));
-    }
+    validate_username(&body.username).map_err(|e| CoreError::BadRequest(e.to_string()))?;
 
-    if state.users.find_by_email(&body.email).await?.is_some() {
+    let email = validate_email(&body.email).map_err(CoreError::BadRequest)?;
+
+    if state.users.find_by_email(&email).await?.is_some() {
         return Err(CoreError::Conflict(
             "The user with this email address exists.".to_string(),
         ));
@@ -49,9 +49,34 @@ pub async fn register(
         ));
     }
 
-    state.users.auth.create(body).await?;
+    body.email = email;
+
+    let token = generate_url_safe_token();
+    state
+        .redis
+        .set_email_validation_info(&token, body.to_slice())
+        .await?;
+
+    let state = state.clone();
+    tokio::spawn(async move {
+        if let Err(e) = state.email.send_email_validate(&body.email, token).await {
+            tracing::error!("Failed to send confirmation email: {e}");
+        }
+    });
 
     Ok(())
+}
+
+pub async fn register_confirm(
+    State(state): State<AppState>,
+    Query(params): Query<ConfirmParams>,
+) -> Result<Html<&'static str>, CoreError> {
+    let raw_info = state.redis.get_email_validated_info(&params.token).await?;
+    let user_info = CreateUserInfo::from_slice(raw_info);
+
+    state.users.auth.create(user_info).await?;
+
+    Ok(Html(gilvave_settings::constants::CONFIRM_SUCCESS_HTML))
 }
 
 pub async fn login(
@@ -78,7 +103,7 @@ pub async fn login(
 
     let is_web = body.device_info.get("client").and_then(|v| v.as_str()) == Some("web");
 
-    let refresh_token = generate_refresh_token();
+    let refresh_token = generate_url_safe_token();
     let refresh_token_hash = hash_refresh_token(&refresh_token);
 
     let session_id = state

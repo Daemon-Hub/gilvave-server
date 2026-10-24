@@ -17,7 +17,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "REDIS_URL",
         "S3_URL",
         "S3_ACCESS_KEY",
-        "S3_SECRET_KEY"
+        "S3_SECRET_KEY",
+        "SMTP_LOGIN",
+        "SMTP_SECRET",
     );
     Ok(())
 }

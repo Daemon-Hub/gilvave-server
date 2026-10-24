@@ -4,7 +4,7 @@ use std::{io::Cursor, sync::Arc};
 
 use crate::db::Database;
 use gilvave_core::{
-    dto::users::profile::{Avatar, ProfileView, Theme},
+    dto::users::profile::{Avatar, CreateThemeInfo, ProfileView, Theme},
     error::*,
     ids::UserId,
 };
@@ -57,22 +57,27 @@ impl ProfileService {
         Ok((servers, has_more))
     }
 
-    pub async fn create_theme(&self) -> Result<(), DatabaseError> {
+    /// TODO: Закончить функцию создания темы
+    pub async fn create_theme(
+        &self,
+        author: String,
+        info: CreateThemeInfo,
+    ) -> Result<(), DatabaseError> {
         self.db
             .execute(
                 r#"
-            INSERT INTO
-                themes (
-                    name,
-                    author,
-                    description,
-                    config,
-                    created_at,
-                    updated_at
-                )
-            VALUES ($1, $2, $3, $4, NOW(), NOW());
-            "#,
-                &[],
+                INSERT INTO
+                    themes (
+                        name,
+                        author,
+                        description,
+                        config,
+                        created_at,
+                        updated_at
+                    )
+                VALUES ($1, $2, $3, $4, NOW(), NOW());
+                "#,
+                &[&info.name, &author, &info.description, &info.config],
             )
             .await?;
         Ok(())

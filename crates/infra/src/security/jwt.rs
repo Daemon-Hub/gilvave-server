@@ -42,7 +42,7 @@ pub fn verify_jwt(token: &str) -> JwtResult<Claims> {
     Ok(data.claims)
 }
 
-pub fn generate_refresh_token() -> String {
+pub fn generate_url_safe_token() -> String {
     let mut bytes = vec![0u8; 64];
     OsRng.fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)

@@ -16,7 +16,7 @@ use gilvave_core::{
 };
 use gilvave_infra::security::{
     auth::extract_cookie,
-    jwt::{Claims, create_jwt, generate_refresh_token, hash_refresh_token},
+    jwt::{Claims, create_jwt, generate_url_safe_token, hash_refresh_token},
 };
 
 use crate::{handlers::users::build_tokens_response, state::AppState};
@@ -51,7 +51,7 @@ pub async fn refresh_token(
     let access_token = create_jwt(session.id, session.user_id)
         .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
 
-    let refresh_token = generate_refresh_token();
+    let refresh_token = generate_url_safe_token();
     let refresh_token_hash = hash_refresh_token(&refresh_token);
 
     state

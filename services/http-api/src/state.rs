@@ -1,4 +1,5 @@
 use axum::extract::FromRef;
+use gilvave_email::EmailService;
 use gilvave_redis::RedisService;
 use std::{ops::Deref, sync::Arc};
 
@@ -13,6 +14,7 @@ pub struct AppStateInner {
     pub servers: ServersService,
     pub s3: S3,
     pub redis: RedisService,
+    pub email: EmailService,
 }
 
 impl AppState {
@@ -22,6 +24,7 @@ impl AppState {
             servers: ServersService::new(db.clone()),
             s3: S3::new().await,
             redis: RedisService::new().await?,
+            email: EmailService::new()?,
         };
         Ok(Self(Arc::new(inner)))
     }

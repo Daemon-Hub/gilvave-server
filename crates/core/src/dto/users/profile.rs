@@ -15,7 +15,7 @@ pub struct AvatarUrl {
     pub url: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileView {
     pub name: String,
     pub bio: String,
@@ -26,7 +26,7 @@ from_row!(ProfileView, name, bio, avatar, settings);
 
 pub type Profile = ProfileView;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Serialize)]
 pub struct Theme {
     pub id: ThemeId,
     pub name: String,
@@ -48,3 +48,10 @@ from_row!(
     created_at,
     updated_at
 );
+
+#[derive(Deserialize)]
+pub struct CreateThemeInfo {
+    pub name: String,
+    pub description: String,
+    pub config: Value,
+}

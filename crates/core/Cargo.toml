@@ -16,3 +16,4 @@ deadpool-postgres.workspace = true
 tracing.workspace = true
 fred.workspace = true
 decancer = "4.0.0"
+emval = "0.1.13"

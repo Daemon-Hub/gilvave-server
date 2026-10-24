@@ -5,6 +5,7 @@
 //! - Атак спуфинга направления текста BiDi (LRE, RLE, RLO, LRO, изоляты)
 //! - Атак с омоглифами и смешиванием алфавитов (например, кириллическая 'А' вместо латинской 'A' в 'Аdmin')
 //! - Похожих имен пользователей (омоглифов) с помощью `decancer`
+use emval::validate_email as em_validate_email;
 
 #[inline]
 pub fn is_bidi_override(c: char) -> bool {
@@ -227,6 +228,14 @@ pub fn validate_message(content: &str) -> Result<String, &'static str> {
     }
 
     Ok(sanitized)
+}
+
+#[inline]
+pub fn validate_email(email: &str) -> Result<String, String> {
+    match em_validate_email(email) {
+        Ok(v) => Ok(v.normalized),
+        Err(e) => Err(format!("Validation error: {}", e)),
+    }
 }
 
 #[cfg(test)]

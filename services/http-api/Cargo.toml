@@ -19,3 +19,4 @@ gilvave-infra = { path = "../../crates/infra" }
 gilvave-s3 = { path = "../../crates/s3" }
 gilvave-settings = { path = "../../crates/settings" }
 gilvave-redis = { path = "../../crates/redis" }
+gilvave-email = { path = "../../crates/email" }

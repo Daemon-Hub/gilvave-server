@@ -109,4 +109,31 @@ impl RedisService {
         let res = self.pool.exists::<bool, String>(key).await?;
         Ok(res)
     }
+
+    pub async fn set_email_validation_info(
+        &self,
+        token: &str,
+        user_info: Vec<u8>,
+    ) -> Result<(), RedisError> {
+        let key = format!("email_validation:{token}");
+        self.pool
+            .set::<(), String, Vec<u8>>(
+                key,
+                user_info,
+                Some(Expiration::EX(
+                    settings!().email_validation_ttl.whole_seconds(),
+                )),
+                None,
+                true,
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_email_validated_info(&self, token: &str) -> Result<Vec<u8>, RedisError> {
+        let key = format!("email_validation:{token}");
+        let user_info = self.pool.get::<Vec<u8>, &String>(&key).await?;
+        self.pool.del::<(), String>(key).await?;
+        Ok(user_info)
+    }
 }
