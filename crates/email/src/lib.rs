@@ -3,7 +3,7 @@ use lettre::{
     transport::smtp::authentication::Credentials,
 };
 
-use gilvave_settings::settings;
+use gilvave_settings::{constants::build_confirm_email_html, settings};
 
 pub struct EmailService {
     mailer: AsyncSmtpTransport<Tokio1Executor>,
@@ -23,7 +23,7 @@ impl EmailService {
         })
     }
 
-    pub async fn send_email_validate(
+    pub async fn send_email_validate_msg(
         &self,
         to_email: &str,
         token: String,
@@ -31,17 +31,17 @@ impl EmailService {
         let confirmation_link =
             format!("http://127.0.0.1:3000/users/auth/register/confirm?token={token}");
 
-        let html_body = format!(
-            r#"<h1>Добро пожаловать в Gilvave!</h1>
-           <p>Пожалуйста, подтвердите ваш email для завершения регистрации, перейдя по ссылке:</p>
-           <p><a href="{confirmation_link}">Подтвердить email</a></p>"#
-        );
+        let html_body = build_confirm_email_html(&confirmation_link);
         let text_body = format!(
-            "Добро пожаловать в Gilvave!\n\nПодтвердите ваш email для завершения регистрации: {confirmation_link}"
+            "Добро пожаловать в Gilvave!\n\n\
+            Спасибо за регистрацию. Для подтверждения адреса электронной почты перейдите по ссылке:\n\
+            {confirmation_link}\n\n\
+            Ссылка активна в течение 20 минут.\n\
+            Если вы не создавали аккаунт в Gilvave, просто проигнорируйте это письмо."
         );
 
         let email = Message::builder()
-            .from(format!("Gilvave <{}>", settings!().smtp_login).parse()?)
+            .from(format!("Gilvave Team <{}>", settings!().smtp_login).parse()?)
             .to(format!("New User <{to_email}>").parse()?)
             .subject("Подтверждение регистрации")
             .multipart(MultiPart::alternative_plain_html(text_body, html_body))?;

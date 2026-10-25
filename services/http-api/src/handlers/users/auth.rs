@@ -59,7 +59,11 @@ pub async fn register_validate(
 
     let state = state.clone();
     tokio::spawn(async move {
-        if let Err(e) = state.email.send_email_validate(&body.email, token).await {
+        if let Err(e) = state
+            .email
+            .send_email_validate_msg(&body.email, token)
+            .await
+        {
             tracing::error!("Failed to send confirmation email: {e}");
         }
     });
