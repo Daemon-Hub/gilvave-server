@@ -119,7 +119,8 @@ impl ServersService {
                 SELECT s.id, s.name, s.icon_url
                 FROM servers s
                 JOIN server_members sm ON sm.server_id = s.id
-                WHERE sm.user_id = $1; 
+                WHERE sm.user_id = $1
+                ORDER BY sm.joined_at ASC NULLS LAST;
                 "#,
                 &[&user_id.0],
             )
