@@ -5,7 +5,12 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-lapin = "4.5.0"
+# RabbitMQ (Deprecated / Replaced by Apache Iggy)
+# lapin = "4.5.0"
+
+# Apache Iggy (Rust High-Performance Message Streaming Platform)
+iggy = "0.11.0"
+
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

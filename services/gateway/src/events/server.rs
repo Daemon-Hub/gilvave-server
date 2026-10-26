@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use gilvave_core::dto::messages::MessageView;
+use gilvave_core::{
+    dto::messages::MessageView,
+    ids::{ChannelId, MessageId},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op", content = "d")]
@@ -10,6 +13,11 @@ pub enum ServerEvent {
     Hello,
     Error { message: String },
     MessageNew(MessageView),
+    MessageUpdate(MessageView),
+    MessageDelete {
+        channel_id: ChannelId,
+        message_id: MessageId,
+    },
     JoinSuccess,
     ChannelHistoryBefore(Vec<MessageView>),
     ChannelHistoryAfter(Vec<MessageView>),

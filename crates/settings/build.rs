@@ -15,6 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "DATABASE_URL",
         "RABBITMQ_DEFAULT_URL",
         "REDIS_URL",
+        "IGGY_URL",
         "S3_URL",
         "S3_ACCESS_KEY",
         "S3_SECRET_KEY",

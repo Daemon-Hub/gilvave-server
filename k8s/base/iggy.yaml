@@ -1,0 +1,86 @@
+# ==============================================================================
+# Apache Iggy (Ultra-fast Streaming Platform & Message Broker written in Rust)
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: iggy-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iggy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iggy
+  template:
+    metadata:
+      labels:
+        app: iggy
+    spec:
+      containers:
+        - name: iggy
+          image: apache/iggy:latest
+          env:
+            - name: IGGY_TCP_ADDRESS
+              value: "0.0.0.0:8090"
+            - name: IGGY_HTTP_ADDRESS
+              value: "0.0.0.0:3000"
+            - name: IGGY_QUIC_ADDRESS
+              value: "0.0.0.0:8080"
+            - name: IGGY_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: IGGY_ROOT_USERNAME
+            - name: IGGY_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: IGGY_ROOT_PASSWORD
+            - name: IGGY_NODE_ADVERTISED_ADDRESS
+              value: "iggy.gilvave.svc.cluster.local"
+          ports:
+            - containerPort: 8090
+              name: tcp
+            - containerPort: 3000
+              name: http
+            - containerPort: 8080
+              name: quic
+          volumeMounts:
+            - name: iggy-storage
+              mountPath: /local_data
+      volumes:
+        - name: iggy-storage
+          persistentVolumeClaim:
+            claimName: iggy-data-pvc
+      securityContext:
+        seccompProfile:
+          type: Unconfined
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iggy
+spec:
+  type: LoadBalancer
+  selector:
+    app: iggy
+  ports:
+    - port: 8090
+      name: tcp
+      targetPort: 8090
+    - port: 3000
+      name: http
+      targetPort: 3000
+    - port: 8080
+      name: quic
+      targetPort: 8080

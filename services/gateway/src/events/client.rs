@@ -6,9 +6,12 @@ use crate::{
     state::AppState,
 };
 use gilvave_core::{
-    dto::messages::{CreateInfo, GetHistoryInfo},
-    dto::users::User,
-    ids::ChannelId,
+    validation::validate_message,
+    dto::{
+        messages::{CreateInfo, GetHistoryInfo},
+        users::User,
+    },
+    ids::{ChannelId, MessageId},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +22,20 @@ pub enum ClientEvent {
     MessageCreate {
         channel_id: ChannelId,
         content: String,
+        #[serde(default)]
+        reply_to_id: Option<MessageId>,
+        #[serde(default)]
+        forwarded_from: Option<serde_json::Value>,
+    },
+    #[serde(alias = "MESSAGE_EDIT")]
+    MessageUpdate {
+        channel_id: ChannelId,
+        message_id: MessageId,
+        content: String,
+    },
+    MessageDelete {
+        channel_id: ChannelId,
+        message_id: MessageId,
     },
     JoinChannel {
         channel_id: ChannelId,
@@ -48,8 +65,10 @@ impl EventHandler for ClientEvent {
             Self::MessageCreate {
                 channel_id,
                 content,
+                reply_to_id,
+                forwarded_from,
             } => {
-                let sanitized_content = match gilvave_core::validation::validate_message(&content) {
+                let sanitized_content = match validate_message(&content) {
                     Ok(s) => s,
                     Err(err_msg) => {
                         _ = sender.send(ServerEvent::Error {
@@ -66,6 +85,8 @@ impl EventHandler for ClientEvent {
                         author_id: user.id,
                         author_name: user.username,
                         content: sanitized_content,
+                        reply_to_id,
+                        forwarded_from,
                     })
                     .await
                 {
@@ -85,6 +106,82 @@ impl EventHandler for ClientEvent {
                         tracing::error!("[DB] Failed to save message to DB: {}", e.to_string());
                         _ = sender.send(ServerEvent::Error {
                             message: "Failed to send message".into(),
+                        });
+                    }
+                }
+            }
+            Self::MessageUpdate {
+                channel_id,
+                message_id,
+                content,
+            } => {
+                let sanitized_content = match validate_message(&content) {
+                    Ok(s) => s,
+                    Err(err_msg) => {
+                        _ = sender.send(ServerEvent::Error {
+                            message: err_msg.into(),
+                        });
+                        return;
+                    }
+                };
+
+                match state
+                    .messages_service
+                    .update(message_id, channel_id, user.id, sanitized_content)
+                    .await
+                {
+                    Ok(message_view) => {
+                        let broker_event = BrokerEvent::MessageUpdated {
+                            message: message_view,
+                        };
+
+                        if let Err(e) = state.broker.publish(&broker_event).await {
+                            tracing::error!("[RabbitMQ] Publish error: {}", e);
+                            _ = sender.send(ServerEvent::Error {
+                                message: "Failed to broadcast".into(),
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("[DB] Failed to update message in DB: {}", e.to_string());
+                        _ = sender.send(ServerEvent::Error {
+                            message: "Failed to update message".into(),
+                        });
+                    }
+                }
+            }
+            Self::MessageDelete {
+                channel_id,
+                message_id,
+            } => {
+                match state
+                    .messages_service
+                    .delete(message_id, channel_id, user.id)
+                    .await
+                {
+                    Ok(deleted) => {
+                        if deleted {
+                            let broker_event = BrokerEvent::MessageDeleted {
+                                channel_id,
+                                message_id,
+                            };
+
+                            if let Err(e) = state.broker.publish(&broker_event).await {
+                                tracing::error!("[RabbitMQ] Publish error: {}", e);
+                                _ = sender.send(ServerEvent::Error {
+                                    message: "Failed to broadcast".into(),
+                                });
+                            }
+                        } else {
+                            _ = sender.send(ServerEvent::Error {
+                                message: "Message not found or forbidden".into(),
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("[DB] Failed to delete message from DB: {}", e.to_string());
+                        _ = sender.send(ServerEvent::Error {
+                            message: "Failed to delete message".into(),
                         });
                     }
                 }

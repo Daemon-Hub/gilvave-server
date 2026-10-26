@@ -21,14 +21,36 @@ services:
       - ${REDIS_PORT}:${REDIS_PORT}
     restart: unless-stopped
 
-  rabbitmq:
-    <<: *env
-    image: rabbitmq:3-management
-    container_name: gilvave-rabbitmq
-    ports:
-      - ${RABBITMQ_DEFAULT_PORT}:${RABBITMQ_DEFAULT_PORT}
-      - "15672:15672" # UI
+  # RabbitMQ (Deprecated / Replaced by Apache Iggy)
+  # rabbitmq:
+  #   <<: *env
+  #   image: rabbitmq:3-management
+  #   container_name: gilvave-rabbitmq
+  #   ports:
+  #     - ${RABBITMQ_DEFAULT_PORT}:${RABBITMQ_DEFAULT_PORT}
+  #     - "15672:15672" # UI
+  #   restart: unless-stopped
+
+  # Apache Iggy (Rust High-Performance Message Streaming Platform)
+  iggy:
+    image: apache/iggy:latest
+    container_name: gilvave-iggy
     restart: unless-stopped
+    ports:
+      - "${IGGY_HTTP_PORT:-3020}:3000" # Web UI / HTTP API
+      - "${IGGY_TCP_PORT:-8090}:8090" # TCP Streaming Protocol
+      - "${IGGY_QUIC_PORT:-8180}:8080" # QUIC Protocol
+    environment:
+      - IGGY_TCP_ADDRESS=0.0.0.0:8090
+      - IGGY_HTTP_ADDRESS=0.0.0.0:3000
+      - IGGY_QUIC_ADDRESS=0.0.0.0:8080
+      - IGGY_NODE_ADVERTISED_ADDRESS=127.0.0.1
+      - IGGY_ROOT_USERNAME=${IGGY_ROOT_USERNAME:-iggy}
+      - IGGY_ROOT_PASSWORD=${IGGY_ROOT_PASSWORD:-iggy_pass}
+    volumes:
+      - iggy_data:/local_data
+    security_opt:
+      - seccomp:unconfined
 
   # SeaweedFS S3
   # Координатор кластера
@@ -100,3 +122,4 @@ services:
 
 volumes:
   postgres_data:
+  iggy_data:
