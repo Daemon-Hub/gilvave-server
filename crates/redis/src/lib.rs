@@ -34,7 +34,7 @@ impl RedisService {
     pub async fn set_user_online(
         &self,
         user_id: UserId,
-        server_ids: Vec<ServerId>,
+        server_ids: &[ServerId],
     ) -> Result<(), RedisError> {
         let trx = self.pool.multi();
         let uid = user_id.to_string();
@@ -54,7 +54,7 @@ impl RedisService {
     pub async fn del_user_online(
         &self,
         user_id: UserId,
-        server_ids: Vec<ServerId>,
+        server_ids: &[ServerId],
     ) -> Result<(), RedisError> {
         let trx = self.pool.multi();
         let uid = user_id.to_string();
@@ -82,7 +82,7 @@ impl RedisService {
     }
 
     /// Добавить массив сессий в черный список
-    pub async fn revoke_sessions_list(&self, sids: Vec<SessionId>) -> Result<(), RedisError> {
+    pub async fn revoke_sessions_list(&self, sids: &[SessionId]) -> Result<(), RedisError> {
         let trx = self.pool.multi();
 
         for sid in sids {
@@ -113,11 +113,11 @@ impl RedisService {
     pub async fn set_email_validation_info(
         &self,
         token: &str,
-        user_info: Vec<u8>,
+        user_info: &[u8],
     ) -> Result<(), RedisError> {
         let key = format!("email_validation:{token}");
         self.pool
-            .set::<(), String, Vec<u8>>(
+            .set::<(), String, &[u8]>(
                 key,
                 user_info,
                 Some(Expiration::EX(
@@ -132,8 +132,8 @@ impl RedisService {
 
     pub async fn get_email_validated_info(&self, token: &str) -> Result<Vec<u8>, RedisError> {
         let key = format!("email_validation:{token}");
-        let user_info = self.pool.get::<Vec<u8>, &String>(&key).await?;
-        self.pool.del::<(), String>(key).await?;
+        let user_info = self.pool.get::<Vec<u8>, &str>(&key).await?;
+        self.pool.del::<(), &str>(&key).await?;
         Ok(user_info)
     }
 }

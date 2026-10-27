@@ -54,7 +54,7 @@ pub async fn register_validate(
     let token = generate_url_safe_token();
     state
         .redis
-        .set_email_validation_info(&token, body.to_slice())
+        .set_email_validation_info(&token, &body.to_slice())
         .await?;
 
     let state = state.clone();
@@ -101,6 +101,7 @@ pub async fn login(
         .users
         .auth
         .verify_password(&user.password_hash, &body.password)
+        .await
     {
         return Err(CoreError::Unauthorized("Invalid password".to_string()));
     }
@@ -121,7 +122,8 @@ pub async fn login(
         })
         .await?;
 
-    let access_token = create_jwt(session_id, user.id).unwrap();
+    let access_token = create_jwt(session_id, user.id)
+        .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
 
     Ok(build_tokens_response(access_token, refresh_token, is_web))
 }

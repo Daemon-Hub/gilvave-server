@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use gilvave_core::{
     dto::messages::MessageView,
@@ -21,4 +22,11 @@ pub enum ServerEvent {
     JoinSuccess,
     ChannelHistoryBefore(Vec<MessageView>),
     ChannelHistoryAfter(Vec<MessageView>),
+}
+
+impl ServerEvent {
+    /// Сериализует событие в иммутабельный разделяемый Arc<str> один раз для всех получателей
+    pub fn to_json(&self) -> Arc<str> {
+        Arc::from(serde_json::to_string(self).unwrap_or_else(|_| "{}".to_string()))
+    }
 }

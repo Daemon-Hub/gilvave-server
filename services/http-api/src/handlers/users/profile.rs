@@ -49,7 +49,7 @@ pub async fn update_avatar(
         return Err(CoreError::BadRequest("Missing field 'avatar'".to_string()));
     };
 
-    let (processed_bytes, mime_type) = state.users.profile.process_avatar(&avatar)?;
+    let (processed_bytes, mime_type) = state.users.profile.process_avatar(avatar).await?;
     let url = state
         .s3
         .send_static(

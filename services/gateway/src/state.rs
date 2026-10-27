@@ -6,7 +6,6 @@ use std::{
 use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
 
-use crate::events::ServerEvent;
 use gilvave_core::ids::{ChannelId, UserId};
 use gilvave_infra::{
     db::Database,
@@ -15,8 +14,8 @@ use gilvave_infra::{
 use gilvave_messaging::RabbitClient;
 use gilvave_redis::RedisService;
 
-type Tx = mpsc::UnboundedSender<ServerEvent>;
-type Dict<K, V> = Arc<RwLock<HashMap<K, V>>>;
+pub type Tx = mpsc::UnboundedSender<Arc<str>>;
+pub type Dict<K, V> = Arc<RwLock<HashMap<K, V>>>;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -25,10 +24,8 @@ pub struct AppState {
 
     // Управляемые данные о пользователях и каналах
     pub users: Dict<UserId, Tx>,
-    // ===================================================================================
-    // TODO: закончить с онлайном и разобраться в максимально эффективной рассылке статуса
-    // ===================================================================================
     pub channels: Dict<ChannelId, HashSet<UserId>>,
+    pub user_channels: Dict<UserId, HashSet<ChannelId>>,
 
     // Сервисы и клиенты
     pub redis: RedisService,
@@ -45,6 +42,7 @@ impl AppState {
             node_id,
             users: Arc::new(RwLock::new(HashMap::new())),
             channels: Arc::new(RwLock::new(HashMap::new())),
+            user_channels: Arc::new(RwLock::new(HashMap::new())),
             redis: RedisService::new().await.unwrap(),
             broker: RabbitClient::new(&node_id.to_string()).await.unwrap(),
             users_service: UsersService::new(db.clone()),

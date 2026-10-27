@@ -94,6 +94,6 @@ pub async fn delete_all_other_sessions(
         .sessions
         .delete_all_other(user.id, clm.sid)
         .await?;
-    state.redis.revoke_sessions_list(sids).await?;
+    state.redis.revoke_sessions_list(&sids).await?;
     Ok(())
 }

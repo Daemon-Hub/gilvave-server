@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -6,12 +7,12 @@ use crate::{
     state::AppState,
 };
 use gilvave_core::{
-    validation::validate_message,
     dto::{
         messages::{CreateInfo, GetHistoryInfo},
         users::User,
     },
     ids::{ChannelId, MessageId},
+    validation::validate_message,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,10 +58,10 @@ pub enum ClientEvent {
 
 #[async_trait::async_trait]
 impl EventHandler for ClientEvent {
-    async fn handle(self, state: AppState, user: User, sender: UnboundedSender<ServerEvent>) {
+    async fn handle(self, state: AppState, user: User, sender: UnboundedSender<Arc<str>>) {
         match self {
             Self::Heartbeat => {
-                _ = sender.send(ServerEvent::HeartbeatAck);
+                _ = sender.send(ServerEvent::HeartbeatAck.to_json());
             }
             Self::MessageCreate {
                 channel_id,
@@ -73,7 +74,7 @@ impl EventHandler for ClientEvent {
                     Err(err_msg) => {
                         _ = sender.send(ServerEvent::Error {
                             message: err_msg.into(),
-                        });
+                        }.to_json());
                         return;
                     }
                 };
@@ -96,17 +97,17 @@ impl EventHandler for ClientEvent {
                         };
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
-                            tracing::error!("[RabbitMQ] Publish error: {}", e);
+                            tracing::error!("[Apache Iggy] Publish error: {}", e);
                             _ = sender.send(ServerEvent::Error {
                                 message: "Failed to broadcast".into(),
-                            });
+                            }.to_json());
                         }
                     }
                     Err(e) => {
-                        tracing::error!("[DB] Failed to save message to DB: {}", e.to_string());
+                        tracing::error!("[DB] Failed to save message to DB: {}", e);
                         _ = sender.send(ServerEvent::Error {
                             message: "Failed to send message".into(),
-                        });
+                        }.to_json());
                     }
                 }
             }
@@ -120,7 +121,7 @@ impl EventHandler for ClientEvent {
                     Err(err_msg) => {
                         _ = sender.send(ServerEvent::Error {
                             message: err_msg.into(),
-                        });
+                        }.to_json());
                         return;
                     }
                 };
@@ -136,17 +137,17 @@ impl EventHandler for ClientEvent {
                         };
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
-                            tracing::error!("[RabbitMQ] Publish error: {}", e);
+                            tracing::error!("[Apache Iggy] Publish error: {}", e);
                             _ = sender.send(ServerEvent::Error {
                                 message: "Failed to broadcast".into(),
-                            });
+                            }.to_json());
                         }
                     }
                     Err(e) => {
-                        tracing::error!("[DB] Failed to update message in DB: {}", e.to_string());
+                        tracing::error!("[DB] Failed to update message in DB: {}", e);
                         _ = sender.send(ServerEvent::Error {
                             message: "Failed to update message".into(),
-                        });
+                        }.to_json());
                     }
                 }
             }
@@ -167,50 +168,62 @@ impl EventHandler for ClientEvent {
                             };
 
                             if let Err(e) = state.broker.publish(&broker_event).await {
-                                tracing::error!("[RabbitMQ] Publish error: {}", e);
+                                tracing::error!("[Apache Iggy] Publish error: {}", e);
                                 _ = sender.send(ServerEvent::Error {
                                     message: "Failed to broadcast".into(),
-                                });
+                                }.to_json());
                             }
                         } else {
                             _ = sender.send(ServerEvent::Error {
                                 message: "Message not found or forbidden".into(),
-                            });
+                            }.to_json());
                         }
                     }
                     Err(e) => {
-                        tracing::error!("[DB] Failed to delete message from DB: {}", e.to_string());
+                        tracing::error!("[DB] Failed to delete message from DB: {}", e);
                         _ = sender.send(ServerEvent::Error {
                             message: "Failed to delete message".into(),
-                        });
+                        }.to_json());
                     }
                 }
             }
             Self::JoinChannel { channel_id } => {
-                let mut channels = state.channels.write().await;
+                let (mut channels, mut user_channels) = tokio::join!(
+                    state.channels.write(),
+                    state.user_channels.write()
+                );
                 channels
                     .entry(channel_id)
-                    .and_modify(|users| {
-                        users.insert(user.id);
-                    })
-                    .or_insert([user.id].into());
-                _ = sender.send(ServerEvent::JoinSuccess);
+                    .or_default()
+                    .insert(user.id);
+                user_channels
+                    .entry(user.id)
+                    .or_default()
+                    .insert(channel_id);
+
+                let count = channels.get(&channel_id).map_or(0, |u| u.len());
+                _ = sender.send(ServerEvent::JoinSuccess.to_json());
                 tracing::info!(
-                    "[WS] User {} joined to channel {channel_id}. Total online in channel: {}",
-                    user.id,
-                    channels.get(&channel_id).iter().len()
+                    "[WS] User {} joined channel {channel_id}. Total online in channel: {count}",
+                    user.id
                 );
             }
             Self::LeftChannel { channel_id } => {
-                let mut channels = state.channels.write().await;
-                channels.entry(channel_id).and_modify(|users| {
+                let (mut channels, mut user_channels) = tokio::join!(
+                    state.channels.write(),
+                    state.user_channels.write()
+                );
+                if let Some(users) = channels.get_mut(&channel_id) {
                     users.remove(&user.id);
                     tracing::info!(
-                        "[WS] User {} left in channel {channel_id}. Total online in channel: {}",
+                        "[WS] User {} left channel {channel_id}. Total online in channel: {}",
                         user.id,
                         users.len()
                     );
-                });
+                }
+                if let Some(chans) = user_channels.get_mut(&user.id) {
+                    chans.remove(&channel_id);
+                }
             }
             Self::ChannelHistoryBefore {
                 channel_id,
@@ -230,7 +243,7 @@ impl EventHandler for ClientEvent {
                         return;
                     }
                 };
-                _ = sender.send(ServerEvent::ChannelHistoryBefore(history));
+                _ = sender.send(ServerEvent::ChannelHistoryBefore(history).to_json());
             }
             Self::ChannelHistoryAfter {
                 channel_id,
@@ -250,7 +263,7 @@ impl EventHandler for ClientEvent {
                         return;
                     }
                 };
-                _ = sender.send(ServerEvent::ChannelHistoryAfter(history));
+                _ = sender.send(ServerEvent::ChannelHistoryAfter(history).to_json());
             }
         }
     }

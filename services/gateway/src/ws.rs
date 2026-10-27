@@ -4,13 +4,14 @@ use axum::{
     response::IntoResponse,
 };
 use futures::{SinkExt, StreamExt};
+use std::sync::Arc;
 use tokio::sync::mpsc::{self, UnboundedSender};
 
 use crate::dispatch_event;
 use crate::events::{ClientEvent, EventHandler, ServerEvent};
 use crate::state::AppState;
 
-use gilvave_core::{dto::users::User, ids::UserId};
+use gilvave_core::{dto::users::User, ids::{ServerId, UserId}};
 use gilvave_infra::security::auth::AuthUser;
 
 pub async fn ws_handler(
@@ -24,17 +25,17 @@ pub async fn ws_handler(
 pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
     let (mut sender, mut receiver) = ws.split();
 
-    let hello = ServerEvent::Hello;
+    let hello_json = ServerEvent::Hello.to_json();
 
     if let Err(e) = sender
-        .send(Message::Text(serde_json::to_string(&hello).unwrap().into()))
+        .send(Message::Text(hello_json.as_ref().into()))
         .await
     {
         tracing::error!("[WS] Failed to send Hello: {}", e);
         return;
     }
 
-    let (tx, mut rx) = mpsc::unbounded_channel::<ServerEvent>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<Arc<str>>();
 
     tokio::join!(
         async {
@@ -47,19 +48,18 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
             );
         },
         async {
+            let server_ids: Vec<ServerId> = state
+                .servers_service
+                .retrieve_user_servers(user.id)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|s| s.id)
+                .collect();
+
             state
                 .redis
-                .set_user_online(
-                    user.id,
-                    state
-                        .servers_service
-                        .retrieve_user_servers(user.id)
-                        .await
-                        .unwrap_or(vec![])
-                        .into_iter()
-                        .map(|s| s.id)
-                        .collect(),
-                )
+                .set_user_online(user.id, &server_ids)
                 .await
                 .map_err(|e| tracing::error!("[Redis] Failed to set user online: {}", e))
                 .ok();
@@ -69,15 +69,14 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
     let recv_task = async {
         while let Some(Ok(msg)) = receiver.next().await {
             if let Ok(text) = msg.into_text() {
-                handle_event(text.to_string(), state.clone(), user.clone(), tx.clone()).await;
+                handle_event(&text, state.clone(), user.clone(), tx.clone()).await;
             }
         }
     };
 
     let send_task = async {
-        while let Some(event) = rx.recv().await {
-            let json = serde_json::to_string(&event).unwrap();
-            if sender.send(Message::Text(json.into())).await.is_err() {
+        while let Some(json) = rx.recv().await {
+            if sender.send(Message::Text(json.as_ref().into())).await.is_err() {
                 break;
             }
         }
@@ -92,12 +91,12 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
 }
 
 pub async fn handle_event(
-    text: String,
+    text: &str,
     state: AppState,
     user: User,
-    sender: UnboundedSender<ServerEvent>,
+    sender: UnboundedSender<Arc<str>>,
 ) {
-    dispatch_event!(&text, state, user, sender, [ClientEvent,]);
+    dispatch_event!(text, state, user, sender, [ClientEvent,]);
 }
 
 async fn cleanup_user(
@@ -107,31 +106,32 @@ async fn cleanup_user(
     tokio::join!(
         async { state.users.write().await.remove(&user_id) },
         async {
-            state
-                .channels
-                .write()
-                .await
-                .iter_mut()
-                .for_each(|(_, users)| {
-                    users.remove(&user_id);
-                });
+            // Очищаем только каналы, в которых реально состоял пользователь (O(k) вместо O(N всех каналов системы))
+            let joined = state.user_channels.write().await.remove(&user_id);
+            if let Some(chans) = joined {
+                let mut channels = state.channels.write().await;
+                for cid in chans {
+                    if let Some(users) = channels.get_mut(&cid) {
+                        users.remove(&user_id);
+                    }
+                }
+            }
         },
         async {
+            let server_ids: Vec<ServerId> = state
+                .servers_service
+                .retrieve_user_servers(user_id)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|s| s.id)
+                .collect();
+
             state
                 .redis
-                .del_user_online(
-                    user_id,
-                    state
-                        .servers_service
-                        .retrieve_user_servers(user_id)
-                        .await
-                        .unwrap_or(vec![])
-                        .into_iter()
-                        .map(|s| s.id)
-                        .collect(),
-                )
+                .del_user_online(user_id, &server_ids)
                 .await
-                .map_err(|e| tracing::error!("[Redis] Failed to set user online: {}", e))
+                .map_err(|e| tracing::error!("[Redis] Failed to delete user online: {}", e))
                 .ok();
         }
     );

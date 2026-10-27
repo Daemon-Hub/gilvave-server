@@ -65,10 +65,6 @@ pub async fn init_db() -> Result<Database, Box<dyn std::error::Error + Send + Sy
     cfg.manager = Some(ManagerConfig {
         recycling_method: RecyclingMethod::Verified,
     });
-    // TCP Keepalive - чтобы сеть не рубила простаивающие соединения
-    // cfg.keepalives = Some(true);
-    // TCP PING каждые 30 сек
-    // cfg.keepalives_idle = Some(std::time::Duration::from_secs(30));
 
     let pool_cfg = PoolConfig {
         max_size: 20,
@@ -77,13 +73,6 @@ pub async fn init_db() -> Result<Database, Box<dyn std::error::Error + Send + Sy
     cfg.pool = Some(pool_cfg);
 
     let pool = cfg.create_pool(Some(Runtime::Tokio1), NoTls)?;
-
-    let (_, connection) = tokio_postgres::connect(settings!().database_url, NoTls).await?;
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            tracing::error!("[DB] Database connection error: {e}");
-        }
-    });
 
     Ok(Database { pool })
 }

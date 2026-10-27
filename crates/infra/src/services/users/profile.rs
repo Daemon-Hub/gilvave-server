@@ -98,8 +98,8 @@ impl ProfileService {
         Ok(())
     }
 
-    /// Обрабатывает изображение: проверяет размер, формат и сжимает в WebP
-    pub fn process_avatar(&self, avatar: &Avatar) -> Result<(Bytes, String), CoreError> {
+    /// Синхронная обработка изображения
+    pub fn process_avatar_sync(avatar: &Avatar) -> Result<(Bytes, String), CoreError> {
         // Проверяем размер не более 5 MB
         if avatar.bytes.len() > 5 * 1024 * 1024 {
             return Err(CoreError::PayloadTooLarge(
@@ -166,5 +166,12 @@ impl ProfileService {
 
         let mime_type = "image/webp".to_string();
         Ok((Bytes::from(output_bytes), mime_type))
+    }
+
+    /// Асинхронная обработка аватара: перенос тяжелого ресайза и сжатия в WebP на spawn_blocking пул
+    pub async fn process_avatar(&self, avatar: Avatar) -> Result<(Bytes, String), CoreError> {
+        tokio::task::spawn_blocking(move || Self::process_avatar_sync(&avatar))
+            .await
+            .map_err(|_| CoreError::InternalServerError("Image processing worker failed".to_string()))?
     }
 }
