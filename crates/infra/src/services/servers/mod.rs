@@ -116,7 +116,7 @@ impl ServersService {
         self.db
             .query(
                 r#"
-                SELECT s.id, s.name, s.icon_url
+                SELECT s.id, s.name, s.icon_url, ($1 = s.owner_id) as is_owner
                 FROM servers s
                 JOIN server_members sm ON sm.server_id = s.id
                 WHERE sm.user_id = $1

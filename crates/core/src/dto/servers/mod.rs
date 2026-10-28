@@ -13,8 +13,9 @@ pub struct ServerSmallPart {
     pub id: ServerId,
     pub name: String,
     pub icon_url: String,
+    pub is_owner: bool,
 }
-from_row!(ServerSmallPart, id, name, icon_url);
+from_row!(ServerSmallPart, id, name, icon_url, is_owner);
 
 #[derive(Serialize)]
 pub struct Server {

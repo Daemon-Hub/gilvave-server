@@ -20,6 +20,6 @@ macro_rules! dispatch_event {
                 return;
             }
         )+
-        tracing::error!("[WS] Unknown event type received");
+        tracing::error!("[WS] Unknown event type received {}", $text);
     };
 }
