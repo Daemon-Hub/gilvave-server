@@ -2532,28 +2532,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gilvave-gateway"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "futures",
- "gilvave-core",
- "gilvave-infra",
- "gilvave-messaging",
- "gilvave-redis",
- "gilvave-settings",
- "mimalloc",
- "serde",
- "serde_json",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "gilvave-http-api"
 version = "0.1.0"
 dependencies = [
@@ -2637,6 +2615,28 @@ version = "0.1.0"
 dependencies = [
  "dotenvy",
  "time",
+]
+
+[[package]]
+name = "gilvave-ws-gateway"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "futures",
+ "gilvave-core",
+ "gilvave-infra",
+ "gilvave-messaging",
+ "gilvave-redis",
+ "gilvave-settings",
+ "mimalloc",
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

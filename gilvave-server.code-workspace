@@ -84,9 +84,9 @@
                 "isBackground": true
             },
             {
-                "label": "GATEWAY RUN",
+                "label": "WS GATEWAY RUN",
                 "type": "shell",
-                "command": "cargo run -p gilvave-gateway",
+                "command": "cargo run -p gilvave-ws-gateway",
                 "problemMatcher": [
                     "$rustc-watch"
                 ],

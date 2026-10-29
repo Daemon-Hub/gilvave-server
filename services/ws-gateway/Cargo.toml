@@ -1,5 +1,5 @@
 [package]
-name = "gilvave-gateway"
+name = "gilvave-ws-gateway"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
