@@ -172,6 +172,8 @@ impl ProfileService {
     pub async fn process_avatar(&self, avatar: Avatar) -> Result<(Bytes, String), CoreError> {
         tokio::task::spawn_blocking(move || Self::process_avatar_sync(&avatar))
             .await
-            .map_err(|_| CoreError::InternalServerError("Image processing worker failed".to_string()))?
+            .map_err(|_| {
+                CoreError::InternalServerError("Image processing worker failed".to_string())
+            })?
     }
 }

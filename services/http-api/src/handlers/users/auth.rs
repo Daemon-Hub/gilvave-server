@@ -19,7 +19,7 @@ use gilvave_core::{
     validation::{validate_email, validate_username},
 };
 use gilvave_infra::security::jwt::{
-    Claims, create_jwt, generate_url_safe_token, hash_refresh_token,
+    Claims, create_jwt_with_user, generate_url_safe_token, hash_refresh_token,
 };
 
 use crate::{handlers::users::build_tokens_response, state::AppState};
@@ -122,7 +122,7 @@ pub async fn login(
         })
         .await?;
 
-    let access_token = create_jwt(session_id, user.id)
+    let access_token = create_jwt_with_user(session_id, user.id, &user.username, &user.email)
         .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
 
     Ok(build_tokens_response(access_token, refresh_token, is_web))

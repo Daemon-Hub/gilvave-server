@@ -72,9 +72,12 @@ impl EventHandler for ClientEvent {
                 let sanitized_content = match validate_message(&content) {
                     Ok(s) => s,
                     Err(err_msg) => {
-                        _ = sender.send(ServerEvent::Error {
-                            message: err_msg.into(),
-                        }.to_json());
+                        _ = sender.send(
+                            ServerEvent::Error {
+                                message: err_msg.into(),
+                            }
+                            .to_json(),
+                        );
                         return;
                     }
                 };
@@ -98,16 +101,22 @@ impl EventHandler for ClientEvent {
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
                             tracing::error!("[Apache Iggy] Publish error: {}", e);
-                            _ = sender.send(ServerEvent::Error {
-                                message: "Failed to broadcast".into(),
-                            }.to_json());
+                            _ = sender.send(
+                                ServerEvent::Error {
+                                    message: "Failed to broadcast".into(),
+                                }
+                                .to_json(),
+                            );
                         }
                     }
                     Err(e) => {
                         tracing::error!("[DB] Failed to save message to DB: {}", e);
-                        _ = sender.send(ServerEvent::Error {
-                            message: "Failed to send message".into(),
-                        }.to_json());
+                        _ = sender.send(
+                            ServerEvent::Error {
+                                message: "Failed to send message".into(),
+                            }
+                            .to_json(),
+                        );
                     }
                 }
             }
@@ -119,9 +128,12 @@ impl EventHandler for ClientEvent {
                 let sanitized_content = match validate_message(&content) {
                     Ok(s) => s,
                     Err(err_msg) => {
-                        _ = sender.send(ServerEvent::Error {
-                            message: err_msg.into(),
-                        }.to_json());
+                        _ = sender.send(
+                            ServerEvent::Error {
+                                message: err_msg.into(),
+                            }
+                            .to_json(),
+                        );
                         return;
                     }
                 };
@@ -138,16 +150,22 @@ impl EventHandler for ClientEvent {
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
                             tracing::error!("[Apache Iggy] Publish error: {}", e);
-                            _ = sender.send(ServerEvent::Error {
-                                message: "Failed to broadcast".into(),
-                            }.to_json());
+                            _ = sender.send(
+                                ServerEvent::Error {
+                                    message: "Failed to broadcast".into(),
+                                }
+                                .to_json(),
+                            );
                         }
                     }
                     Err(e) => {
                         tracing::error!("[DB] Failed to update message in DB: {}", e);
-                        _ = sender.send(ServerEvent::Error {
-                            message: "Failed to update message".into(),
-                        }.to_json());
+                        _ = sender.send(
+                            ServerEvent::Error {
+                                message: "Failed to update message".into(),
+                            }
+                            .to_json(),
+                        );
                     }
                 }
             }
@@ -169,37 +187,38 @@ impl EventHandler for ClientEvent {
 
                             if let Err(e) = state.broker.publish(&broker_event).await {
                                 tracing::error!("[Apache Iggy] Publish error: {}", e);
-                                _ = sender.send(ServerEvent::Error {
-                                    message: "Failed to broadcast".into(),
-                                }.to_json());
+                                _ = sender.send(
+                                    ServerEvent::Error {
+                                        message: "Failed to broadcast".into(),
+                                    }
+                                    .to_json(),
+                                );
                             }
                         } else {
-                            _ = sender.send(ServerEvent::Error {
-                                message: "Message not found or forbidden".into(),
-                            }.to_json());
+                            _ = sender.send(
+                                ServerEvent::Error {
+                                    message: "Message not found or forbidden".into(),
+                                }
+                                .to_json(),
+                            );
                         }
                     }
                     Err(e) => {
                         tracing::error!("[DB] Failed to delete message from DB: {}", e);
-                        _ = sender.send(ServerEvent::Error {
-                            message: "Failed to delete message".into(),
-                        }.to_json());
+                        _ = sender.send(
+                            ServerEvent::Error {
+                                message: "Failed to delete message".into(),
+                            }
+                            .to_json(),
+                        );
                     }
                 }
             }
             Self::JoinChannel { channel_id } => {
-                let (mut channels, mut user_channels) = tokio::join!(
-                    state.channels.write(),
-                    state.user_channels.write()
-                );
-                channels
-                    .entry(channel_id)
-                    .or_default()
-                    .insert(user.id);
-                user_channels
-                    .entry(user.id)
-                    .or_default()
-                    .insert(channel_id);
+                let (mut channels, mut user_channels) =
+                    tokio::join!(state.channels.write(), state.user_channels.write());
+                channels.entry(channel_id).or_default().insert(user.id);
+                user_channels.entry(user.id).or_default().insert(channel_id);
 
                 let count = channels.get(&channel_id).map_or(0, |u| u.len());
                 _ = sender.send(ServerEvent::JoinSuccess.to_json());
@@ -209,10 +228,8 @@ impl EventHandler for ClientEvent {
                 );
             }
             Self::LeftChannel { channel_id } => {
-                let (mut channels, mut user_channels) = tokio::join!(
-                    state.channels.write(),
-                    state.user_channels.write()
-                );
+                let (mut channels, mut user_channels) =
+                    tokio::join!(state.channels.write(), state.user_channels.write());
                 if let Some(users) = channels.get_mut(&channel_id) {
                     users.remove(&user.id);
                     tracing::info!(

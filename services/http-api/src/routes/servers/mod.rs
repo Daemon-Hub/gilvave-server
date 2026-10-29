@@ -5,11 +5,7 @@ use axum::{
     routing::{get, post},
 };
 
-use crate::{
-    handlers::servers::*,
-    middleware::auth_middleware,
-    state::AppState,
-};
+use crate::{handlers::servers::*, middleware::auth_middleware, state::AppState};
 
 pub fn routes(state: AppState) -> Router {
     let public_routes = Router::new()

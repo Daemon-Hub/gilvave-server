@@ -3,15 +3,10 @@ use axum::{
     routing::{delete, get, post},
 };
 
-use crate::{
-    handlers::users::sessions::*,
-    middleware::auth_middleware,
-    state::AppState,
-};
+use crate::{handlers::users::sessions::*, middleware::auth_middleware, state::AppState};
 
 pub fn routes(state: AppState) -> Router {
-    let public_routes = Router::new()
-        .route("/refresh", post(refresh_token));
+    let public_routes = Router::new().route("/refresh", post(refresh_token));
 
     let protected_routes = Router::new()
         .route("/", get(get_sessions))

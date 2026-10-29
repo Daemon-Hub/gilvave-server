@@ -1,0 +1,21 @@
+[package]
+name = "gilvave-api-gateway"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pingora = { version = "0.9.0", default-features = false, features = ["proxy", "rustls"] }
+async-trait = "0.1.89"
+parking_lot = "0.12"
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+mimalloc.workspace = true
+bytes.workspace = true
+jsonwebtoken.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+gilvave-core = { path = "../../crates/core" }
+gilvave-settings = { path = "../../crates/settings" }

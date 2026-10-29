@@ -11,7 +11,10 @@ use crate::dispatch_event;
 use crate::events::{ClientEvent, EventHandler, ServerEvent};
 use crate::state::AppState;
 
-use gilvave_core::{dto::users::User, ids::{ServerId, UserId}};
+use gilvave_core::{
+    dto::users::User,
+    ids::{ServerId, UserId},
+};
 use gilvave_infra::security::auth::AuthUser;
 
 pub async fn ws_handler(
@@ -27,10 +30,7 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
 
     let hello_json = ServerEvent::Hello.to_json();
 
-    if let Err(e) = sender
-        .send(Message::Text(hello_json.as_ref().into()))
-        .await
-    {
+    if let Err(e) = sender.send(Message::Text(hello_json.as_ref().into())).await {
         tracing::error!("[WS] Failed to send Hello: {}", e);
         return;
     }
@@ -76,7 +76,11 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
 
     let send_task = async {
         while let Some(json) = rx.recv().await {
-            if sender.send(Message::Text(json.as_ref().into())).await.is_err() {
+            if sender
+                .send(Message::Text(json.as_ref().into()))
+                .await
+                .is_err()
+            {
                 break;
             }
         }

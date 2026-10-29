@@ -12,6 +12,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
     forward_env_vars!(
         "SECRET",
+        "HTTP_API_UPSTREAM",
+        "WS_GATEWAY_UPSTREAM",
+        "GATEWAY_LISTEN_ADDR",
         "DATABASE_URL",
         "RABBITMQ_DEFAULT_URL",
         "REDIS_URL",

@@ -63,12 +63,7 @@ impl AuthService {
                 INSERT INTO users (id, username, email, password_hash)
                 VALUES ($1, $2, $3, $4);
                 "#,
-                &[
-                    &user_id,
-                    &info.username,
-                    &info.email,
-                    &password_hash,
-                ],
+                &[&user_id, &info.username, &info.email, &password_hash],
             )
             .await?;
 

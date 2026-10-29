@@ -18,7 +18,15 @@ pub struct User {
     #[serde(with = "time::serde::rfc3339")]
     pub joined_at: OffsetDateTime,
 }
-from_row!(User, id, username, email, password_hash, is_active, joined_at);
+from_row!(
+    User,
+    id,
+    username,
+    email,
+    password_hash,
+    is_active,
+    joined_at
+);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserView {

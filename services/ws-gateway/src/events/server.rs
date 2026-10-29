@@ -12,7 +12,9 @@ use gilvave_core::{
 pub enum ServerEvent {
     HeartbeatAck,
     Hello,
-    Error { message: String },
+    Error {
+        message: String,
+    },
     MessageNew(MessageView),
     MessageUpdate(MessageView),
     MessageDelete {

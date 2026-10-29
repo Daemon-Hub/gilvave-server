@@ -4,26 +4,30 @@ use gilvave_core::ids::{SessionId, UserId};
 use jsonwebtoken::{
     DecodingKey, EncodingKey, Header, Validation, decode, encode, errors::Result as JwtResult,
 };
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use gilvave_settings::settings;
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: UserId,
-    pub sid: SessionId,
-    pub exp: i64,
-    pub jti: Uuid,
-}
+pub use gilvave_core::dto::users::auth::Claims;
 
 pub fn create_jwt(session_id: SessionId, user_id: UserId) -> JwtResult<String> {
+    create_jwt_with_user(session_id, user_id, "", "")
+}
+
+pub fn create_jwt_with_user(
+    session_id: SessionId,
+    user_id: UserId,
+    username: &str,
+    email: &str,
+) -> JwtResult<String> {
     let claims = Claims {
         sub: user_id,
         sid: session_id,
         exp: settings!().access_token_expire(),
         jti: Uuid::new_v4(),
+        username: username.to_string(),
+        email: email.to_string(),
     };
     encode(
         &Header::default(),

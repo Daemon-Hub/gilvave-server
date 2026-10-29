@@ -100,7 +100,12 @@ impl IggyBroker {
         let mut messages = [message];
 
         self.client
-            .send_messages(&self.stream_ident, &self.topic_ident, &partitioning, &mut messages)
+            .send_messages(
+                &self.stream_ident,
+                &self.topic_ident,
+                &partitioning,
+                &mut messages,
+            )
             .await?;
 
         Ok(())
@@ -108,7 +113,10 @@ impl IggyBroker {
 }
 
 /// Запускает фоновый консьюмер сообщений из топика Apache Iggy и передаёт их в mpsc-канал.
-pub async fn start_consumer(client: Arc<IggyClient>, consumer_name: &str) -> mpsc::Receiver<String> {
+pub async fn start_consumer(
+    client: Arc<IggyClient>,
+    consumer_name: &str,
+) -> mpsc::Receiver<String> {
     let (tx, rx) = mpsc::channel::<String>(10000); // Буфер на 10к сообщений
     let consumer_name = consumer_name.to_string();
 
@@ -142,7 +150,15 @@ pub async fn start_consumer(client: Arc<IggyClient>, consumer_name: &str) -> mps
         let mut idle_duration = tokio::time::Duration::from_millis(10);
         loop {
             match client
-                .poll_messages(&stream, &topic, None, &consumer, &polling_strategy, 50, true)
+                .poll_messages(
+                    &stream,
+                    &topic,
+                    None,
+                    &consumer,
+                    &polling_strategy,
+                    50,
+                    true,
+                )
                 .await
             {
                 Ok(polled) => {
@@ -192,7 +208,11 @@ fn parse_iggy_config(url: &str) -> (String, String, String) {
             password.to_string(),
         );
     }
-    ("127.0.0.1:8090".to_string(), "iggy".to_string(), "iggy_pass".to_string())
+    (
+        "127.0.0.1:8090".to_string(),
+        "iggy".to_string(),
+        "iggy_pass".to_string(),
+    )
 }
 
 #[cfg(test)]
@@ -203,7 +223,9 @@ mod tests {
     #[ignore = "requires running Apache Iggy instance"]
     async fn test_broker_connect() {
         gilvave_settings::setup_settings();
-        let broker = IggyBroker::new("test_node").await.expect("Failed to init IggyBroker");
+        let broker = IggyBroker::new("test_node")
+            .await
+            .expect("Failed to init IggyBroker");
         assert_eq!(broker.stream_name, "messages");
     }
 }

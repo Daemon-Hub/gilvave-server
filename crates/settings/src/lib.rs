@@ -6,6 +6,10 @@ pub struct Settings {
     // SECRET KEY
     pub secret: &'static str,
 
+    pub http_api_upstream: &'static str,
+    pub ws_gateway_upstream: &'static str,
+    pub gateway_listen_addr: &'static str,
+
     // PostgreSQL
     pub database_url: &'static str,
 
@@ -44,6 +48,9 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             secret: std::env!("SECRET"),
+            http_api_upstream: std::env!("HTTP_API_UPSTREAM"),
+            ws_gateway_upstream: std::env!("WS_GATEWAY_UPSTREAM"),
+            gateway_listen_addr: std::env!("GATEWAY_LISTEN_ADDR"),
             database_url: std::env!("DATABASE_URL"),
             rmq_url: option_env!("RABBITMQ_DEFAULT_URL").unwrap_or(""),
             iggy_url: option_env!("IGGY_URL").unwrap_or("iggy://iggy:iggy_pass@127.0.0.1:8090"),

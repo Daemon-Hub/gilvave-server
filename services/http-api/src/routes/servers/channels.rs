@@ -3,15 +3,10 @@ use axum::{
     routing::{get, patch},
 };
 
-use crate::{
-    handlers::servers::channels::*,
-    middleware::auth_middleware,
-    state::AppState,
-};
+use crate::{handlers::servers::channels::*, middleware::auth_middleware, state::AppState};
 
 pub fn routes(state: AppState) -> Router {
-    let public_routes = Router::new()
-        .route("/", get(get_all).post(create));
+    let public_routes = Router::new().route("/", get(get_all).post(create));
 
     let protected_routes = Router::new()
         .route("/{channel_id}/name", patch(update_name))

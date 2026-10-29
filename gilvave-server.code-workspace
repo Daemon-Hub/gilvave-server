@@ -93,6 +93,15 @@
                 "isBackground": true
             },
             {
+                "label": "API GATEWAY RUN",
+                "type": "shell",
+                "command": "cargo run -p gilvave-api-gateway",
+                "problemMatcher": [
+                    "$rustc-watch"
+                ],
+                "isBackground": true
+            },
+            {
                 "label": "docker compose up",
                 "type": "shell",
                 "command": "wsl -d Ubuntu --exec docker compose up -d",

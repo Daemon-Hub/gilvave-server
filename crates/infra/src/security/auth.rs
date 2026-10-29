@@ -49,6 +49,30 @@ where
     type Rejection = CoreError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        if let Some(user_data_hdr) = parts.headers.get("x-user-data")
+            && let Ok(user_data_str) = user_data_hdr.to_str()
+            && let Ok(gw_user) = serde_json::from_str::<
+                gilvave_core::dto::users::auth::GatewayUserData,
+            >(user_data_str)
+        {
+            let user = User {
+                id: gw_user.id,
+                username: gw_user.username.clone(),
+                email: gw_user.email.clone(),
+                password_hash: String::new(),
+                is_active: true,
+                joined_at: time::OffsetDateTime::UNIX_EPOCH,
+            };
+            let claims = Claims {
+                sub: gw_user.id,
+                sid: gw_user.session_id,
+                exp: 0,
+                jti: gw_user.jti,
+                username: gw_user.username,
+                email: gw_user.email,
+            };
+            return Ok(Self(user, claims));
+        }
         let auth_header = parts
             .headers
             .get(header::AUTHORIZATION)

@@ -4,8 +4,8 @@ pub mod sessions;
 
 use std::sync::Arc;
 
-use gilvave_core::{dto::users::User, error::*, ids::UserId};
 use crate::db::Database;
+use gilvave_core::{dto::users::User, error::*, ids::UserId};
 
 #[derive(Clone)]
 pub struct UsersService {
