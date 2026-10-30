@@ -1,6 +1,7 @@
 mod auth;
 mod circuit_breaker;
 mod proxy;
+mod rate_limiter;
 
 use mimalloc::MiMalloc;
 use pingora::{proxy::http_proxy_service, server::Server};
@@ -35,9 +36,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         "[GATEWAY] Upstream WS:      {}",
         settings!().ws_gateway_upstream
     );
-    tracing::info!("[GATEWAY] Edge CORS:        Enabled (instant 204 preflight)");
-    tracing::info!("[GATEWAY] Edge Auth:        Enabled (JWT verification on entry)");
-    tracing::info!("[GATEWAY] Circuit Breaker:  Enabled (Closed / Open / Half-Open)");
+    tracing::info!("[GATEWAY] Edge CORS:        Enabled");
+    tracing::info!("[GATEWAY] Edge Auth:        Enabled (JWT + Redis Revocation Check)");
+    tracing::info!("[GATEWAY] Rate Limiter:     Enabled (10 req/s per IP)");
+    tracing::info!("[GATEWAY] Payload Limit:    Enabled (10 MB)");
+    tracing::info!("[GATEWAY] Circuit Breaker:  Enabled");
 
     let mut server = Server::new(None)?;
     server.bootstrap();
@@ -45,7 +48,6 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let gateway = GilvaveApiGateway::new(
         settings!().http_api_upstream.to_string(),
         settings!().ws_gateway_upstream.to_string(),
-        settings!().secret.as_bytes(),
     );
     let mut proxy = http_proxy_service(&server.configuration, gateway);
     proxy.add_tcp(settings!().gateway_listen_addr);

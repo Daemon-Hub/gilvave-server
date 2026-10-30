@@ -6,10 +6,16 @@ pub fn is_public_path(path: &str) -> bool {
         path,
         "/users/login"
             | "/api/users/login"
+            | "/users/auth/login"
+            | "/api/users/auth/login"
             | "/users/register/validate"
             | "/api/users/register/validate"
+            | "/users/auth/register/validate"
+            | "/api/users/auth/register/validate"
             | "/users/register/confirm"
             | "/api/users/register/confirm"
+            | "/users/auth/register/confirm"
+            | "/api/users/auth/register/confirm"
             | "/health"
             | "/ping"
     )
@@ -82,8 +88,12 @@ mod tests {
     fn test_public_paths() {
         assert!(is_public_path("/users/login"));
         assert!(is_public_path("/api/users/login"));
+        assert!(is_public_path("/users/auth/login"));
+        assert!(is_public_path("/api/users/auth/login"));
         assert!(is_public_path("/users/register/validate"));
+        assert!(is_public_path("/users/auth/register/validate"));
         assert!(is_public_path("/users/register/confirm"));
+        assert!(is_public_path("/users/auth/register/confirm"));
         assert!(is_public_path("/health"));
         assert!(is_public_path("/ping"));
 

@@ -11,15 +11,8 @@ use std::net::IpAddr;
 
 use gilvave_core::{
     dto::users::{
-        User,
-        auth::{ConfirmParams, CreateUserInfo, LoginInfo},
-        sessions::SessionCreateInfo,
-    },
-    error::CoreError,
-    validation::{validate_email, validate_username},
-};
-use gilvave_infra::security::jwt::{
-    Claims, create_jwt_with_user, generate_url_safe_token, hash_refresh_token,
+        auth::{Claims, ConfirmParams, CreateUserInfo, LoginInfo}, sessions::SessionCreateInfo,
+    }, error::CoreError, security::jwt::{create_jwt, generate_url_safe_token, hash_refresh_token}, validation::{validate_email, validate_username},
 };
 
 use crate::{handlers::users::build_tokens_response, state::AppState};
@@ -122,7 +115,7 @@ pub async fn login(
         })
         .await?;
 
-    let access_token = create_jwt_with_user(session_id, user.id, &user.username, &user.email)
+    let access_token = create_jwt(session_id, user.id)
         .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
 
     Ok(build_tokens_response(access_token, refresh_token, is_web))
@@ -130,12 +123,11 @@ pub async fn login(
 
 pub async fn logout(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
-    Extension(clm): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<Response, CoreError> {
     let (_, res) = tokio::join!(
-        state.redis.revoke_session(clm.sid, clm.exp),
-        state.users.sessions.delete_by_id(user.id, clm.sid),
+        state.redis.revoke_session(claims.sid, claims.exp),
+        state.users.sessions.delete_by_id(claims.sub, claims.sid),
     );
     res?;
 

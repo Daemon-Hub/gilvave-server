@@ -4,8 +4,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use gilvave_core::error::CoreError;
-use gilvave_infra::security::auth::AuthUser;
+use gilvave_core::{error::CoreError, security::auth::extract_claims_from_headers};
 use std::net::{IpAddr, SocketAddr};
 
 use crate::state::AppState;
@@ -16,7 +15,6 @@ pub async fn client_ip_middleware(
     mut req: Request<axum::body::Body>,
     next: Next,
 ) -> Response {
-    // Приоритет: X-Forwarded-For (если за доверенным прокси) → X-Real-IP → сокет
     let ip = headers
         .get("x-forwarded-for")
         .and_then(|v| v.to_str().ok())
@@ -37,37 +35,31 @@ pub async fn client_ip_middleware(
 pub async fn tracing_middleware(req: Request<axum::body::Body>, next: Next) -> Response {
     let method = req.method().clone();
     let uri = req.uri().clone();
+    let req_id = req
+        .headers()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from)
+        .unwrap_or_else(|| "-".to_string());
 
     let res = next.run(req).await;
 
     let status = res.status();
     if status.is_server_error() {
-        tracing::error!("[HTTP] {method} {uri} -> {status}");
+        tracing::error!("[HTTP] [{req_id}] {method} {uri} -> {status}");
     } else {
-        tracing::info!("[HTTP] {method} {uri} -> {status}");
+        tracing::info!("[HTTP] [{req_id}] {method} {uri} -> {status}");
     }
 
     res
 }
 
 pub async fn auth_middleware(
-    State(state): State<AppState>,
-    AuthUser(user, claims): AuthUser,
+    State(_state): State<AppState>,
     mut req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, CoreError> {
-    let is_revoked = state
-        .redis
-        .get_session_revocation_status(claims.sid)
-        .await?;
-
-    if is_revoked {
-        return Err(CoreError::Unauthorized("Session revoked".to_string()));
-    }
-
-    req.extensions_mut().insert(claims.sid);
-    req.extensions_mut().insert(user);
+    let claims = extract_claims_from_headers(req.headers(), req.uri().query())?;
     req.extensions_mut().insert(claims);
-
     Ok(next.run(req).await)
 }

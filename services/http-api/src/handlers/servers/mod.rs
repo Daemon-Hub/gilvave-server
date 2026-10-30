@@ -6,26 +6,22 @@ use axum::{
 };
 
 use crate::state::AppState;
-use gilvave_core::{
-    dto::{servers::*, users::User},
-    error::CoreError,
-    ids::ServerId,
-};
+use gilvave_core::{dto::{servers::*, users::auth::Claims}, error::CoreError, ids::ServerId};
 
 pub async fn get_user_servers(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<Json<Vec<ServerSmallPart>>, CoreError> {
-    let servers = state.servers.retrieve_user_servers(user.id).await?;
+    let servers = state.servers.retrieve_user_servers(claims.sub).await?;
     Ok(Json(servers))
 }
 
 pub async fn get_server_by_id(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<Json<Server>, CoreError> {
-    Ok(Json(state.servers.get_by_id(server_id, user.id).await?))
+    Ok(Json(state.servers.get_by_id(server_id, claims.sub).await?))
 }
 
 pub async fn get_public_servers(
@@ -37,10 +33,10 @@ pub async fn get_public_servers(
 
 pub async fn create_server(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
     Json(info): Json<ServerCreateInfo>,
 ) -> Result<Json<Server>, CoreError> {
-    Ok(Json(state.servers.create(info, user.id).await?))
+    Ok(Json(state.servers.create(info, claims.sub).await?))
 }
 
 /*
@@ -53,13 +49,13 @@ pub async fn create_server(
 pub async fn join_public(
     Path(server_id): Path<ServerId>,
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<(), CoreError> {
     state
         .servers
         .add_user(JoinInfo {
             server_id,
-            user_id: user.id,
+            user_id: claims.sub,
         })
         .await?;
     Ok(())

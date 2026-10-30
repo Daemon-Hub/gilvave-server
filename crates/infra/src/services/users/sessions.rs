@@ -1,11 +1,12 @@
 use maxminddb::{self as mmdb, geoip2};
 use std::{net::IpAddr, sync::Arc};
 
-use crate::{db::Database, security::jwt::verify_jwt};
+use crate::db::Database;
 use gilvave_core::{
     dto::users::sessions::{BlacklistInfo, SessionCreateInfo, SessionIds, SessionView},
     error::DatabaseError,
     ids::{SessionId, UserId},
+    security::jwt::decode_jwt,
 };
 use gilvave_settings::settings;
 use time::OffsetDateTime;
@@ -204,7 +205,7 @@ impl SessionsService {
     }
 
     pub async fn blacklist_token(&self, info: BlacklistInfo) -> Result<(), DatabaseError> {
-        let claims = verify_jwt(&info.token).unwrap();
+        let claims = decode_jwt(&info.token).unwrap();
         let exp = OffsetDateTime::from_unix_timestamp(claims.exp).unwrap();
 
         self.db

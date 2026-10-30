@@ -1,33 +1,49 @@
 use async_trait::async_trait;
 use bytes::Bytes;
-use jsonwebtoken::{DecodingKey, Validation, decode};
 use pingora::http::ResponseHeader;
 use pingora::prelude::*;
 use pingora::upstreams::peer::Peer;
-use std::time::Instant;
-
-use gilvave_core::dto::users::auth::{Claims, GatewayUserData};
+use std::net::{IpAddr, Ipv4Addr};
+use std::time::{Duration, Instant};
+use tokio::sync::OnceCell;
 
 use crate::auth::{extract_token, is_public_path};
 use crate::circuit_breaker::CircuitBreaker;
+use crate::rate_limiter::RateLimiter;
+use gilvave_core::security::jwt::decode_jwt;
+use gilvave_redis::RedisService;
+
+const MAX_PAYLOAD_SIZE: usize = 10 * 1024 * 1024;
 
 pub struct GilvaveApiGateway {
     http_upstream: String,
     ws_upstream: String,
-    decoding_key: DecodingKey,
     http_breaker: CircuitBreaker,
     ws_breaker: CircuitBreaker,
+    rate_limiter: RateLimiter,
+    redis: OnceCell<RedisService>,
 }
 
 impl GilvaveApiGateway {
-    pub fn new(http_upstream: String, ws_upstream: String, secret: &[u8]) -> Self {
+    pub fn new(http_upstream: String, ws_upstream: String) -> Self {
         Self {
             http_upstream,
             ws_upstream,
-            decoding_key: DecodingKey::from_secret(secret),
-            http_breaker: CircuitBreaker::new("HTTP-API", 5, 5), // 5 ошибок -> 5 секунд кулдаун
+            http_breaker: CircuitBreaker::new("HTTP-API", 5, 5),
             ws_breaker: CircuitBreaker::new("WS-GATEWAY", 5, 5),
+            rate_limiter: RateLimiter::new(10, Duration::from_secs(1)),
+            redis: OnceCell::new(),
         }
+    }
+
+    async fn get_redis(&self) -> Result<&RedisService, ()> {
+        self.redis
+            .get_or_try_init(|| async {
+                RedisService::new().await.map_err(|e| {
+                    tracing::error!("[GATEWAY REDIS] Failed to initialize Redis connection: {e}");
+                })
+            })
+            .await
     }
 }
 
@@ -35,6 +51,8 @@ pub struct GatewayContext {
     pub start_time: Instant,
     pub user_id: Option<String>,
     pub is_ws: bool,
+    pub request_id: String,
+    pub client_ip: IpAddr,
 }
 
 #[async_trait]
@@ -46,10 +64,11 @@ impl ProxyHttp for GilvaveApiGateway {
             start_time: Instant::now(),
             user_id: None,
             is_ws: false,
+            request_id: uuid::Uuid::new_v4().to_string(),
+            client_ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
         }
     }
 
-    /// Маршрутизация
     async fn upstream_peer(
         &self,
         session: &mut Session,
@@ -64,29 +83,79 @@ impl ProxyHttp for GilvaveApiGateway {
             &self.http_upstream
         };
 
-        Ok(Box::new(HttpPeer::new(target_addr, false, String::new())))
+        let mut peer = Box::new(HttpPeer::new(target_addr, false, String::new()));
+        peer.options.connection_timeout = Some(Duration::from_secs(5));
+        peer.options.read_timeout = Some(Duration::from_secs(15));
+        peer.options.write_timeout = Some(Duration::from_secs(10));
+        peer.options.idle_timeout = Some(Duration::from_secs(60));
+
+        Ok(peer)
     }
 
-    /// Перехват и фильтрация запроса на входе
     async fn request_filter(
         &self,
         session: &mut Session,
         ctx: &mut Self::CTX,
     ) -> pingora::Result<bool> {
+        if let Some(client_addr) = session.client_addr()
+            && let Some(inet) = client_addr.as_inet()
+        {
+            ctx.client_ip = inet.ip();
+        }
 
-        // Защита от спуфинга: удаляем клиентские заголовки
+        let ip_str = ctx.client_ip.to_string();
         {
             let req_mut = session.req_header_mut();
             let _ = req_mut.remove_header("x-user-id");
             let _ = req_mut.remove_header("x-session-id");
             let _ = req_mut.remove_header("x-user-data");
+            let _ = req_mut.remove_header("x-user-claims");
+
+            let _ = req_mut.append_header("X-Real-IP", &ip_str);
+            let _ = req_mut.append_header("X-Forwarded-For", &ip_str);
+            let _ = req_mut.append_header("X-Request-ID", &ctx.request_id);
+        }
+
+        if !self.rate_limiter.check(ctx.client_ip) {
+            tracing::warn!(
+                "[RATE LIMIT] IP {} exceeded limit on {}",
+                ctx.client_ip,
+                session.req_header().uri.path()
+            );
+
+            let mut resp = ResponseHeader::build(429, None)?;
+            let _ = resp.append_header("Content-Type", "application/json");
+            let _ = resp.append_header("Retry-After", "1");
+            let _ = resp.append_header("X-Request-ID", &ctx.request_id);
+            let body =
+                Bytes::from_static(b"{\"error\":\"Too Many Requests: Rate limit exceeded\"}");
+            let _ = resp.append_header("Content-Length", body.len().to_string());
+
+            session.write_response_header(Box::new(resp), false).await?;
+            session.write_response_body(Some(body), true).await?;
+            return Ok(true);
+        }
+
+        if let Some(cl_val) = session.req_header().headers.get("Content-Length")
+            && let Ok(cl_str) = cl_val.to_str()
+            && let Ok(cl) = cl_str.parse::<usize>()
+            && cl > MAX_PAYLOAD_SIZE
+        {
+            let mut resp = ResponseHeader::build(413, None)?;
+            let _ = resp.append_header("Content-Type", "application/json");
+            let _ = resp.append_header("X-Request-ID", &ctx.request_id);
+            let body =
+                Bytes::from_static(b"{\"error\":\"Payload Too Large: Maximum size is 10MB\"}");
+            let _ = resp.append_header("Content-Length", body.len().to_string());
+
+            session.write_response_header(Box::new(resp), false).await?;
+            session.write_response_body(Some(body), true).await?;
+            return Ok(true);
         }
 
         let path = session.req_header().uri.path();
         let is_ws = path.starts_with("/ws");
 
-
-        // Circuit Breaker
         let breaker = if is_ws {
             &self.ws_breaker
         } else {
@@ -104,6 +173,7 @@ impl ProxyHttp for GilvaveApiGateway {
             let mut resp = ResponseHeader::build(503, None)?;
             let _ = resp.append_header("Content-Type", "application/json");
             let _ = resp.append_header("Retry-After", "5");
+            let _ = resp.append_header("X-Request-ID", &ctx.request_id);
             let body = Bytes::from_static(
                 b"{\"error\":\"Service temporarily unavailable. Circuit breaker is open. Please try again in 5 seconds.\"}",
             );
@@ -114,8 +184,6 @@ impl ProxyHttp for GilvaveApiGateway {
             return Ok(true);
         }
 
-
-        // Обработка CORS Preflight (OPTIONS)
         if session.req_header().method == "OPTIONS" {
             let origin = session
                 .req_header()
@@ -134,66 +202,62 @@ impl ProxyHttp for GilvaveApiGateway {
             );
             let _ = resp.append_header(
                 "Access-Control-Allow-Headers",
-                "Content-Type, Authorization, X-Requested-With, Accept, Sec-WebSocket-Protocol",
+                "Content-Type, Authorization, X-Requested-With, Accept, Sec-WebSocket-Protocol, X-Request-ID",
             );
             let _ = resp.append_header("Access-Control-Max-Age", "86400");
+            let _ = resp.append_header("X-Request-ID", &ctx.request_id);
             let _ = resp.append_header("Content-Length", "0");
 
             session.write_response_header(Box::new(resp), true).await?;
             return Ok(true);
         }
 
-
-        // Проброс реального IP клиента
-        if let Some(client_addr) = session.client_addr() {
-            let ip_str = client_addr.to_string();
-            let _ = session.req_header_mut().append_header("X-Real-IP", &ip_str);
-            let _ = session
-                .req_header_mut()
-                .append_header("X-Forwarded-For", &ip_str);
-        }
-
-
-        // Edge Authentication (JWT Валидация + инжекция X-User-Data)
         let is_public = is_public_path(session.req_header().uri.path());
 
         if !is_public {
             let token_opt = extract_token(session);
 
             let auth_result = match token_opt {
-                Some(token_str) => {
-                    match decode::<Claims>(token_str, &self.decoding_key, &Validation::default()) {
-                        Ok(data) => {
-                            let user_id_str = data.claims.sub.0.to_string();
-                            let session_id_str = data.claims.sid.0.to_string();
-                            let user_data_json = serde_json::to_string(&GatewayUserData {
-                                id: data.claims.sub,
-                                session_id: data.claims.sid,
-                                jti: data.claims.jti,
-                                username: data.claims.username,
-                                email: data.claims.email,
-                            })
-                            .unwrap_or_default();
-
-                            Ok((user_id_str, session_id_str, user_data_json))
+                Some(token_str) => match decode_jwt(token_str) {
+                    Ok(claims) => {
+                        if let Ok(redis) = self.get_redis().await {
+                            match redis.get_session_revocation_status(claims.sid).await {
+                                Ok(true) => {
+                                    tracing::warn!("[GATEWAY AUTH] Session {} revoked", claims.sid);
+                                    Err("Session revoked".to_string())
+                                }
+                                Ok(false) => {
+                                    let user_id_str = claims.sub.0.to_string();
+                                    let claims_json =
+                                        serde_json::to_string(&claims).unwrap_or_default();
+                                    Ok((user_id_str, claims_json))
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "[GATEWAY REDIS] Error checking session revocation: {e}"
+                                    );
+                                    let user_id_str = claims.sub.0.to_string();
+                                    let claims_json =
+                                        serde_json::to_string(&claims).unwrap_or_default();
+                                    Ok((user_id_str, claims_json))
+                                }
+                            }
+                        } else {
+                            let user_id_str = claims.sub.0.to_string();
+                            let claims_json = serde_json::to_string(&claims).unwrap_or_default();
+                            Ok((user_id_str, claims_json))
                         }
-                        Err(e) => Err(format!("Invalid JWT: {e}")),
                     }
-                }
+                    Err(e) => Err(format!("Invalid JWT: {e}")),
+                },
                 None => Err("Missing authentication token".to_string()),
             };
 
             match auth_result {
-                Ok((user_id_str, session_id_str, user_data_json)) => {
-                    let _ = session
-                        .req_header_mut()
-                        .append_header("X-User-Id", &user_id_str);
-                    let _ = session
-                        .req_header_mut()
-                        .append_header("X-Session-Id", &session_id_str);
-                    let _ = session
-                        .req_header_mut()
-                        .append_header("X-User-Data", &user_data_json);
+                Ok((user_id_str, claims_json)) => {
+                    let req_mut = session.req_header_mut();
+                    let _ = req_mut.append_header("X-User-Claims", &claims_json);
+                    let _ = req_mut.append_header("X-User-Id", &user_id_str);
 
                     ctx.user_id = Some(user_id_str);
                 }
@@ -203,14 +267,16 @@ impl ProxyHttp for GilvaveApiGateway {
                         session.req_header().uri.path(),
                         err_msg
                     );
-                    session
-                        .respond_error_with_body(
-                            401,
-                            Bytes::from_static(
-                                b"{\"error\":\"Unauthorized: Invalid or missing token\"}",
-                            ),
-                        )
-                        .await?;
+                    let mut resp = ResponseHeader::build(401, None)?;
+                    let _ = resp.append_header("Content-Type", "application/json");
+                    let _ = resp.append_header("X-Request-ID", &ctx.request_id);
+                    let body = Bytes::from_static(
+                        b"{\"error\":\"Unauthorized: Invalid or revoked token\"}",
+                    );
+                    let _ = resp.append_header("Content-Length", body.len().to_string());
+
+                    session.write_response_header(Box::new(resp), false).await?;
+                    session.write_response_body(Some(body), true).await?;
                     return Ok(true);
                 }
             }
@@ -219,7 +285,6 @@ impl ProxyHttp for GilvaveApiGateway {
         Ok(false)
     }
 
-    /// Хук Pingora: вызывается при сбое подключения к апстриму!
     fn fail_to_connect(
         &self,
         _session: &mut Session,
@@ -244,7 +309,6 @@ impl ProxyHttp for GilvaveApiGateway {
         e
     }
 
-    /// Ответ от апстрима получен успешно -> информируем Circuit Breaker и проставляем CORS
     async fn upstream_response_filter(
         &self,
         _session: &mut Session,
@@ -266,14 +330,18 @@ impl ProxyHttp for GilvaveApiGateway {
         Ok(())
     }
 
-    /// Добавление CORS-заголовков в исходящие ответы
     async fn response_filter(
         &self,
         session: &mut Session,
         upstream_response: &mut ResponseHeader,
-        _ctx: &mut Self::CTX,
+        ctx: &mut Self::CTX,
     ) -> pingora::Result<()> {
+        let _ = upstream_response.append_header("X-Request-ID", &ctx.request_id);
+
         if let Some(origin) = session.req_header().headers.get("Origin") {
+            let _ = upstream_response.remove_header("Access-Control-Allow-Origin");
+            let _ = upstream_response.remove_header("Access-Control-Allow-Credentials");
+
             let _ =
                 upstream_response.append_header("Access-Control-Allow-Origin", origin.as_bytes());
             let _ = upstream_response.append_header("Access-Control-Allow-Credentials", "true");
@@ -283,7 +351,6 @@ impl ProxyHttp for GilvaveApiGateway {
         Ok(())
     }
 
-    /// Структурированное логирование запроса с задержкой и ID пользователя
     async fn logging(
         &self,
         session: &mut Session,
@@ -302,10 +369,12 @@ impl ProxyHttp for GilvaveApiGateway {
         let user_info = ctx.user_id.as_deref().unwrap_or("anonymous");
 
         tracing::info!(
-            "[GATEWAY] {} {} [{}] -> status: {} ({:?})",
+            "[GATEWAY] [{}] {} {} [{}] from {} -> status: {} ({:?})",
+            ctx.request_id,
             method,
             path,
             user_info,
+            ctx.client_ip,
             status,
             duration
         );

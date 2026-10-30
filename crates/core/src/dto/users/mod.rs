@@ -38,3 +38,12 @@ pub struct UserView {
     pub joined_at: OffsetDateTime,
     pub profile: ProfileView,
 }
+from_row!(
+    UserView,
+    id,
+    username,
+    email,
+    is_active,
+    joined_at,
+    profile: ProfileView
+);

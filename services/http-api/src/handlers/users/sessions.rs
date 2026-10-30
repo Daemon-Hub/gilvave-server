@@ -7,16 +7,10 @@ use axum::{
 use std::net::IpAddr;
 
 use gilvave_core::{
-    dto::users::{
-        User,
-        sessions::{RefreshTokenRequest, SessionView},
+    dto::users::{auth::Claims, sessions::{RefreshTokenRequest, SessionView}}, error::CoreError, ids::SessionId, security::{
+        auth::extract_cookie,
+        jwt::{create_jwt, generate_url_safe_token, hash_refresh_token},
     },
-    error::CoreError,
-    ids::SessionId,
-};
-use gilvave_infra::security::{
-    auth::extract_cookie,
-    jwt::{Claims, create_jwt, generate_url_safe_token, hash_refresh_token},
 };
 
 use crate::{handlers::users::build_tokens_response, state::AppState};
@@ -65,34 +59,37 @@ pub async fn refresh_token(
 
 pub async fn get_sessions(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
-    Extension(clm): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<Json<Vec<(SessionView, bool)>>, CoreError> {
-    Ok(Json(state.users.sessions.get_list(user.id, clm.sid).await?))
+    Ok(Json(
+        state
+            .users
+            .sessions
+            .get_list(claims.sub, claims.sid)
+            .await?,
+    ))
 }
 
 pub async fn delete_session_by_id(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
-    Extension(clm): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
     Path(session_id): Path<SessionId>,
 ) -> Result<(), CoreError> {
     let (_, res) = tokio::join!(
-        state.redis.revoke_session(session_id, clm.exp),
-        state.users.sessions.delete_by_id(user.id, session_id)
+        state.redis.revoke_session(session_id, claims.exp),
+        state.users.sessions.delete_by_id(claims.sub, session_id)
     );
     Ok(res?)
 }
 
 pub async fn delete_all_other_sessions(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
-    Extension(clm): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<(), CoreError> {
     let sids = state
         .users
         .sessions
-        .delete_all_other(user.id, clm.sid)
+        .delete_all_other(claims.sub, claims.sid)
         .await?;
     state.redis.revoke_sessions_list(&sids).await?;
     Ok(())

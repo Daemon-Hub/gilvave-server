@@ -7,7 +7,7 @@ rust-version.workspace = true
 [dependencies]
 pingora = { version = "0.9.0", default-features = false, features = ["proxy", "rustls"] }
 async-trait = "0.1.89"
-parking_lot = "0.12"
+parking_lot = "0.13"
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -16,6 +16,8 @@ bytes.workspace = true
 jsonwebtoken.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+uuid.workspace = true
 
 gilvave-core = { path = "../../crates/core" }
 gilvave-settings = { path = "../../crates/settings" }
+gilvave-redis = { path = "../../crates/redis" }

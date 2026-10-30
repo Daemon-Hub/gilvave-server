@@ -5,9 +5,7 @@ use axum::{
 
 use crate::state::AppState;
 use gilvave_core::{
-    dto::{servers::channels::*, users::User},
-    error::{CoreError, DatabaseError},
-    ids::{ChannelId, ServerId, UserId},
+    dto::{servers::channels::*, users::auth::Claims}, error::{CoreError, DatabaseError}, ids::{ChannelId, ServerId, UserId},
 };
 
 async fn with_channel_permissions<F, Fut>(
@@ -57,10 +55,10 @@ pub async fn create(
 pub async fn update_name(
     Path(path): Path<(ServerId, ChannelId)>,
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
     Json(name): Json<NameUpdate>,
 ) -> Result<Json<ChannelView>, CoreError> {
-    let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
+    let res = with_channel_permissions(&state, claims.sub, path, |server_id, channel_id| {
         state
             .servers
             .channels
@@ -74,10 +72,10 @@ pub async fn update_name(
 pub async fn update_position(
     Path(path): Path<(ServerId, ChannelId)>,
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
     Json(position): Json<PositionUpdate>,
 ) -> Result<Json<ChannelView>, CoreError> {
-    let res = with_channel_permissions(&state, user.id, path, |server_id, channel_id| {
+    let res = with_channel_permissions(&state, claims.sub, path, |server_id, channel_id| {
         state
             .servers
             .channels

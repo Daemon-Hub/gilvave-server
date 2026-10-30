@@ -4,7 +4,10 @@ use std::{io::Cursor, sync::Arc};
 
 use crate::db::Database;
 use gilvave_core::{
-    dto::users::profile::{Avatar, CreateThemeInfo, ProfileView, Theme},
+    dto::users::{
+        UserView,
+        profile::{Avatar, CreateThemeInfo, ProfileView, Theme},
+    },
     error::*,
     ids::UserId,
 };
@@ -15,6 +18,38 @@ pub struct ProfileService {
 }
 
 impl ProfileService {
+    pub async fn get_user_view(&self, user_id: UserId) -> Result<Option<UserView>, DatabaseError> {
+        let row = self
+            .db
+            .query_opt(
+                r#"
+                SELECT 
+                    u.id, 
+                    u.username, 
+                    u.email, 
+                    u.is_active, 
+                    u.joined_at,
+                    COALESCE(p.name, u.username) AS profile_name,
+                    COALESCE(p.bio, '') AS profile_bio,
+                    COALESCE(p.avatar, '') AS profile_avatar,
+                    COALESCE(p.settings, '{}'::jsonb) AS profile_settings
+                FROM users u
+                LEFT JOIN profile p ON p.user_id = u.id
+                WHERE u.id = $1;
+                "#,
+                &[&user_id],
+            )
+            .await?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let user_view = UserView::from_row(&row)?;
+
+        Ok(Some(user_view))
+    }
+
     pub async fn get_by_user_id(&self, user_id: UserId) -> Result<ProfileView, DatabaseError> {
         let row = self
             .db

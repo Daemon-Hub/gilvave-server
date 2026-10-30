@@ -4,30 +4,27 @@ use axum::{
 };
 
 use gilvave_core::{
-    dto::users::{User, UserView, profile::*},
-    error::CoreError,
+    dto::users::{UserView, auth::Claims, profile::*}, error::CoreError,
 };
-
 use crate::state::AppState;
 
 pub async fn get_profile(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<Json<UserView>, CoreError> {
-    let profile = state.users.profile.get_by_user_id(user.id).await?;
-    Ok(Json(UserView {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        is_active: user.is_active,
-        joined_at: user.joined_at,
-        profile,
-    }))
+    let user_view = state
+        .users
+        .profile
+        .get_user_view(claims.sub)
+        .await?
+        .ok_or_else(|| CoreError::Unauthorized("User not found".to_string()))?;
+
+    Ok(Json(user_view))
 }
 
 pub async fn update_avatar(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
     mut multipart: Multipart,
 ) -> Result<Json<AvatarUrl>, CoreError> {
     let avatar = if let Some(field) = multipart.next_field().await.unwrap_or(None)
@@ -53,14 +50,14 @@ pub async fn update_avatar(
     let url = state
         .s3
         .send_static(
-            &format!("avatar/{}/{}.webp", user.id, uuid::Uuid::new_v4()),
+            &format!("avatar/{}/{}.webp", claims.sub, uuid::Uuid::new_v4()),
             processed_bytes.into(),
             Some(&mime_type),
         )
         .await
         .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
 
-    state.users.profile.update_avatar(user.id, &url).await?;
+    state.users.profile.update_avatar(claims.sub, &url).await?;
 
     Ok(Json(AvatarUrl { url }))
 }
@@ -76,13 +73,16 @@ pub async fn get_themes_list(
 
 pub async fn create_theme(
     State(state): State<AppState>,
-    Extension(user): Extension<User>,
+    Extension(claims): Extension<Claims>,
     Json(body): Json<CreateThemeInfo>,
 ) -> Result<(), CoreError> {
-    state
+    let author = state
         .users
-        .profile
-        .create_theme(user.username, body)
-        .await?;
+        .find_by_id(claims.sub)
+        .await?
+        .ok_or_else(|| CoreError::Unauthorized("User not found".to_string()))?
+        .username;
+
+    state.users.profile.create_theme(author, body).await?;
     Ok(())
 }

@@ -15,5 +15,12 @@ tokio-postgres.workspace = true
 deadpool-postgres.workspace = true
 tracing.workspace = true
 fred.workspace = true
+jsonwebtoken.workspace = true
+argon2.workspace = true
 decancer = "4.0.0"
 emval = "0.1.13"
+base64 = "0.23.1"
+hex = "0.4.3"
+sha2 = "0.11.0"
+
+gilvave-settings = { path = "../settings" }

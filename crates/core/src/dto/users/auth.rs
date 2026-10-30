@@ -8,22 +8,6 @@ pub struct Claims {
     pub sid: SessionId,
     pub exp: i64,
     pub jti: Uuid,
-    #[serde(default)]
-    pub username: String,
-    #[serde(default)]
-    pub email: String,
-}
-
-/// Проверенный паспорт пользователя, инжектируемый API Gateway в заголовок X-User-Data
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GatewayUserData {
-    pub id: UserId,
-    pub session_id: SessionId,
-    pub jti: Uuid,
-    #[serde(default)]
-    pub username: String,
-    #[serde(default)]
-    pub email: String,
 }
 
 #[derive(Serialize, Deserialize)]

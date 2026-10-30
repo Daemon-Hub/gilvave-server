@@ -1,7 +1,8 @@
 use axum::{
     extract::State,
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
-    response::IntoResponse,
+    http::{HeaderMap, Uri},
+    response::{IntoResponse, Response},
 };
 use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
@@ -13,16 +14,33 @@ use crate::state::AppState;
 
 use gilvave_core::{
     dto::users::User,
+    error::CoreError,
     ids::{ServerId, UserId},
+    security::auth::extract_claims_from_headers,
 };
-use gilvave_infra::security::auth::AuthUser;
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
+    headers: HeaderMap,
+    uri: Uri,
     State(state): State<AppState>,
-    AuthUser(user, _): AuthUser,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, user, state))
+) -> Result<Response, CoreError> {
+    let claims = extract_claims_from_headers(&headers, uri.query())?;
+
+    let user = state
+        .users_service
+        .find_by_id(claims.sub)
+        .await
+        .map_err(|e| CoreError::InternalServerError(e.to_string()))?
+        .ok_or_else(|| CoreError::Unauthorized("User not found".to_string()))?;
+
+    if !user.is_active {
+        return Err(CoreError::Unauthorized("User is inactive".to_string()));
+    }
+
+    Ok(ws
+        .on_upgrade(move |socket| handle_socket(socket, user, state))
+        .into_response())
 }
 
 pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
