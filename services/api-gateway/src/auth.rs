@@ -16,9 +16,18 @@ pub fn is_public_path(path: &str) -> bool {
             | "/api/users/register/confirm"
             | "/users/auth/register/confirm"
             | "/api/users/auth/register/confirm"
+            | "/users/sessions/refresh"
+            | "/api/users/sessions/refresh"
+            | "/users/refresh"
+            | "/api/users/refresh"
             | "/health"
             | "/ping"
-    )
+    ) || path.starts_with("/servers/public")
+        || path.starts_with("/api/servers/public")
+        || path.starts_with("/users/profile/themes")
+        || path.starts_with("/api/users/profile/themes")
+        || path.starts_with("/users/themes")
+        || path.starts_with("/api/users/themes")
 }
 
 /// Извлечение токена из заголовков (Authorization, Cookie, Sec-WebSocket-Protocol) или Query-параметров.
@@ -96,6 +105,9 @@ mod tests {
         assert!(is_public_path("/users/auth/register/confirm"));
         assert!(is_public_path("/health"));
         assert!(is_public_path("/ping"));
+        assert!(is_public_path("/users/sessions/refresh"));
+        assert!(is_public_path("/api/users/sessions/refresh"));
+        assert!(is_public_path("/servers/public/1"));
 
         assert!(!is_public_path("/users/@me"));
         assert!(!is_public_path("/servers"));

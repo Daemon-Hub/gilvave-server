@@ -15,6 +15,14 @@ use gilvave_redis::RedisService;
 
 const MAX_PAYLOAD_SIZE: usize = 10 * 1024 * 1024;
 
+fn attach_cors_headers(resp: &mut ResponseHeader, session: &Session) {
+    if let Some(origin) = session.req_header().headers.get("Origin") {
+        let _ = resp.append_header("Access-Control-Allow-Origin", origin.as_bytes());
+        let _ = resp.append_header("Access-Control-Allow-Credentials", "true");
+        let _ = resp.append_header("Vary", "Origin");
+    }
+}
+
 pub struct GilvaveApiGateway {
     http_upstream: String,
     ws_upstream: String,
@@ -85,9 +93,15 @@ impl ProxyHttp for GilvaveApiGateway {
 
         let mut peer = Box::new(HttpPeer::new(target_addr, false, String::new()));
         peer.options.connection_timeout = Some(Duration::from_secs(5));
-        peer.options.read_timeout = Some(Duration::from_secs(15));
-        peer.options.write_timeout = Some(Duration::from_secs(10));
-        peer.options.idle_timeout = Some(Duration::from_secs(60));
+        if ctx.is_ws {
+            peer.options.read_timeout = None;
+            peer.options.write_timeout = None;
+            peer.options.idle_timeout = None;
+        } else {
+            peer.options.read_timeout = Some(Duration::from_secs(15));
+            peer.options.write_timeout = Some(Duration::from_secs(10));
+            peer.options.idle_timeout = Some(Duration::from_secs(60));
+        }
 
         Ok(peer)
     }
@@ -124,6 +138,7 @@ impl ProxyHttp for GilvaveApiGateway {
             );
 
             let mut resp = ResponseHeader::build(429, None)?;
+            attach_cors_headers(&mut resp, session);
             let _ = resp.append_header("Content-Type", "application/json");
             let _ = resp.append_header("Retry-After", "1");
             let _ = resp.append_header("X-Request-ID", &ctx.request_id);
@@ -142,6 +157,7 @@ impl ProxyHttp for GilvaveApiGateway {
             && cl > MAX_PAYLOAD_SIZE
         {
             let mut resp = ResponseHeader::build(413, None)?;
+            attach_cors_headers(&mut resp, session);
             let _ = resp.append_header("Content-Type", "application/json");
             let _ = resp.append_header("X-Request-ID", &ctx.request_id);
             let body =
@@ -153,8 +169,12 @@ impl ProxyHttp for GilvaveApiGateway {
             return Ok(true);
         }
 
-        let path = session.req_header().uri.path();
-        let is_ws = path.starts_with("/ws");
+        let is_ws = session.req_header().uri.path().starts_with("/ws");
+
+        if is_ws {
+            session.as_downstream_mut().set_read_timeout(None);
+            session.as_downstream_mut().set_write_timeout(None);
+        }
 
         let breaker = if is_ws {
             &self.ws_breaker
@@ -166,11 +186,12 @@ impl ProxyHttp for GilvaveApiGateway {
         if !allowed {
             tracing::warn!(
                 "[CIRCUIT BREAKER] Request to {} blocked by {:?} breaker!",
-                path,
+                session.req_header().uri.path(),
                 status
             );
 
             let mut resp = ResponseHeader::build(503, None)?;
+            attach_cors_headers(&mut resp, session);
             let _ = resp.append_header("Content-Type", "application/json");
             let _ = resp.append_header("Retry-After", "5");
             let _ = resp.append_header("X-Request-ID", &ctx.request_id);
@@ -268,6 +289,7 @@ impl ProxyHttp for GilvaveApiGateway {
                         err_msg
                     );
                     let mut resp = ResponseHeader::build(401, None)?;
+                    attach_cors_headers(&mut resp, session);
                     let _ = resp.append_header("Content-Type", "application/json");
                     let _ = resp.append_header("X-Request-ID", &ctx.request_id);
                     let body = Bytes::from_static(
@@ -311,10 +333,15 @@ impl ProxyHttp for GilvaveApiGateway {
 
     async fn upstream_response_filter(
         &self,
-        _session: &mut Session,
+        session: &mut Session,
         upstream_response: &mut ResponseHeader,
         ctx: &mut Self::CTX,
     ) -> pingora::Result<()> {
+        if ctx.is_ws || upstream_response.status.as_u16() == 101 {
+            session.as_downstream_mut().set_read_timeout(None);
+            session.as_downstream_mut().set_write_timeout(None);
+        }
+
         let breaker = if ctx.is_ws {
             &self.ws_breaker
         } else {

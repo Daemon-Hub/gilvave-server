@@ -1,2 +1,9 @@
 /target
 .env
+
+# TLS & Certificates
+certs/
+services/api-gateway/certs/
+*.pem
+*.key
+*.crt
