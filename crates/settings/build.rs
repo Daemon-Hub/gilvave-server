@@ -16,7 +16,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "WS_GATEWAY_UPSTREAM",
         "GATEWAY_LISTEN_ADDR",
         "DATABASE_URL",
-        "RABBITMQ_DEFAULT_URL",
         "REDIS_URL",
         "IGGY_URL",
         "S3_URL",

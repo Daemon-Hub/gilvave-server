@@ -19,6 +19,7 @@ time.workspace = true
 async-trait = "0.1.89"
 
 gilvave-core = { path = "../../crates/core" }
+gilvave-security = { path = "../../crates/security" }
 gilvave-infra = { path = "../../crates/infra" }
 gilvave-messaging = { path = "../../crates/messaging" }
 gilvave-settings = { path = "../../crates/settings" }

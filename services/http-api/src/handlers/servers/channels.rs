@@ -5,7 +5,9 @@ use axum::{
 
 use crate::state::AppState;
 use gilvave_core::{
-    dto::{servers::channels::*, users::auth::Claims}, error::{CoreError, DatabaseError}, ids::{ChannelId, ServerId, UserId},
+    dto::{servers::channels::*, users::auth::Claims},
+    error::{CoreError, DatabaseError},
+    ids::{ChannelId, ServerId, UserId},
 };
 
 async fn with_channel_permissions<F, Fut>(

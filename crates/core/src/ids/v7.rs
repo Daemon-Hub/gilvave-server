@@ -7,7 +7,9 @@ use tokio_postgres::types::{FromSql, IsNull, ToSql, Type};
 
 macro_rules! id_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        #[derive(
+            Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+        )]
         pub struct $name(pub Uuid);
 
         impl Default for $name {

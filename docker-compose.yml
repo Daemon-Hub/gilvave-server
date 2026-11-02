@@ -21,16 +21,6 @@ services:
       - ${REDIS_PORT}:${REDIS_PORT}
     restart: unless-stopped
 
-  # RabbitMQ (Deprecated / Replaced by Apache Iggy)
-  # rabbitmq:
-  #   <<: *env
-  #   image: rabbitmq:3-management
-  #   container_name: gilvave-rabbitmq
-  #   ports:
-  #     - ${RABBITMQ_DEFAULT_PORT}:${RABBITMQ_DEFAULT_PORT}
-  #     - "15672:15672" # UI
-  #   restart: unless-stopped
-
   # Apache Iggy (Rust High-Performance Message Streaming Platform)
   iggy:
     image: apache/iggy:latest

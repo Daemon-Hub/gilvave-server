@@ -11,9 +11,13 @@ use std::net::IpAddr;
 
 use gilvave_core::{
     dto::users::{
-        auth::{Claims, ConfirmParams, CreateUserInfo, LoginInfo}, sessions::SessionCreateInfo,
-    }, error::CoreError, security::jwt::{create_jwt, generate_url_safe_token, hash_refresh_token}, validation::{validate_email, validate_username},
+        auth::{Claims, ConfirmParams, CreateUserInfo, LoginInfo},
+        sessions::SessionCreateInfo,
+    },
+    error::CoreError,
+    validation::{validate_email, validate_username},
 };
+use gilvave_security::jwt::{create_jwt, generate_url_safe_token, hash_refresh_token};
 
 use crate::{handlers::users::build_tokens_response, state::AppState};
 

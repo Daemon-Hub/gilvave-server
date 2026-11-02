@@ -14,6 +14,7 @@ mimalloc.workspace = true
 uuid.workspace = true
 
 gilvave-core = { path = "../../crates/core" }
+gilvave-security = { path = "../../crates/security" }
 gilvave-infra = { path = "../../crates/infra" }
 gilvave-s3 = { path = "../../crates/s3" }
 gilvave-settings = { path = "../../crates/settings" }

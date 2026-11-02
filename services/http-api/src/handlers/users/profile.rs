@@ -3,10 +3,11 @@ use axum::{
     extract::{Multipart, Path, State},
 };
 
-use gilvave_core::{
-    dto::users::{UserView, auth::Claims, profile::*}, error::CoreError,
-};
 use crate::state::AppState;
+use gilvave_core::{
+    dto::users::{UserView, auth::Claims, profile::*},
+    error::CoreError,
+};
 
 pub async fn get_profile(
     State(state): State<AppState>,

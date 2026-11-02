@@ -1,3 +1,0 @@
-[env]
-CMAKE = "C:\\msys64\\mingw64\\bin\\cmake.exe"
-CMAKE_GENERATOR = "Ninja"

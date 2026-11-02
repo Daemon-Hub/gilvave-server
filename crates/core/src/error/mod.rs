@@ -1,3 +1,7 @@
+pub mod users;
+
+pub use users::*;
+
 use axum::{
     Json,
     http::StatusCode,
@@ -12,6 +16,8 @@ pub enum CoreError {
     BadRequest(String),
     /// 403 Запрещено
     Forbidden(String),
+    /// 404 Не найдено
+    NotFound(String),
     /// 409 Конфликт
     Conflict(String),
     /// 413 Полезная нагрузка слишком велика
@@ -31,6 +37,7 @@ impl IntoResponse for CoreError {
             CoreError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             CoreError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             CoreError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
+            CoreError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             CoreError::Conflict(msg) => (StatusCode::CONFLICT, msg),
             CoreError::UnsupportedMediaType(msg) => (StatusCode::UNSUPPORTED_MEDIA_TYPE, msg),
             CoreError::UnprocessableEntity(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg),
@@ -52,6 +59,7 @@ impl From<DatabaseError> for CoreError {
     }
 }
 
+#[derive(Debug)]
 pub enum DatabaseError {
     Pool(deadpool_postgres::PoolError),
     Postgres(tokio_postgres::Error),

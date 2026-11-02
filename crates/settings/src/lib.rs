@@ -13,9 +13,6 @@ pub struct Settings {
     // PostgreSQL
     pub database_url: &'static str,
 
-    // RabbitMQ (Deprecated / Replaced by Apache Iggy)
-    pub rmq_url: &'static str,
-
     // Apache Iggy
     pub iggy_url: &'static str,
 
@@ -52,7 +49,6 @@ impl Default for Settings {
             ws_gateway_upstream: std::env!("WS_GATEWAY_UPSTREAM"),
             gateway_listen_addr: std::env!("GATEWAY_LISTEN_ADDR"),
             database_url: std::env!("DATABASE_URL"),
-            rmq_url: option_env!("RABBITMQ_DEFAULT_URL").unwrap_or(""),
             iggy_url: option_env!("IGGY_URL").unwrap_or("iggy://iggy:iggy_pass@127.0.0.1:8090"),
             redis_url: std::env!("REDIS_URL"),
             s3_url: std::env!("S3_URL"),

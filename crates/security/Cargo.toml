@@ -1,0 +1,18 @@
+[package]
+name = "gilvave-security"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+gilvave-core = { path = "../core" }
+gilvave-settings = { path = "../settings" }
+
+axum.workspace = true
+uuid.workspace = true
+serde_json.workspace = true
+jsonwebtoken.workspace = true
+argon2.workspace = true
+sha2 = "0.11.0"
+base64 = "0.23.1"
+hex = "0.4.3"

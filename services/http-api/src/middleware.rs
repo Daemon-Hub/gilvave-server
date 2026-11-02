@@ -4,7 +4,8 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use gilvave_core::{error::CoreError, security::auth::extract_claims_from_headers};
+use gilvave_core::error::CoreError;
+use gilvave_security::auth::extract_claims_from_headers;
 use std::net::{IpAddr, SocketAddr};
 
 use crate::state::AppState;

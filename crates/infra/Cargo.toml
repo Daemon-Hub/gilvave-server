@@ -21,4 +21,5 @@ deadpool-postgres.workspace = true
 maxminddb = "0.32"
 
 gilvave-core = { path = "../core" }
+gilvave-security = { path = "../security" }
 gilvave-settings = { path = "../settings" }

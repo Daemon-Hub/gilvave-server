@@ -16,9 +16,6 @@ pub struct IggyBroker {
     topic_ident: Identifier,
 }
 
-// Псевдоним для полной обратной совместимости с существующим кодом Gateway
-pub type RabbitClient = IggyBroker;
-
 impl IggyBroker {
     pub async fn new(_node_id: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let (server_addr, username, password) = parse_iggy_config(settings!().iggy_url);
@@ -78,11 +75,6 @@ impl IggyBroker {
         })
     }
 
-    /// Возвращает ссылку на внутренний IggyClient (сохранено имя метода get_channel для совместимости)
-    pub fn get_channel(&self) -> Arc<IggyClient> {
-        Arc::clone(&self.client)
-    }
-
     /// Возвращает ссылку на внутренний IggyClient
     pub fn get_client(&self) -> Arc<IggyClient> {
         Arc::clone(&self.client)
@@ -123,7 +115,6 @@ pub async fn start_consumer(
     let stream = Identifier::named("messages").expect("Valid stream identifier");
     let topic = Identifier::named("gateway_events").expect("Valid topic identifier");
 
-    // Создаём персональную consumer group для этого экземпляра ноды (аналог fanout в RabbitMQ)
     client
         .create_consumer_group(&stream, &topic, &consumer_name)
         .await

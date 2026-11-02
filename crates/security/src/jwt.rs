@@ -6,7 +6,7 @@ use jsonwebtoken::{
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::{
+use gilvave_core::{
     dto::users::auth::Claims,
     ids::{SessionId, UserId},
 };

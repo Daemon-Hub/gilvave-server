@@ -23,16 +23,6 @@ portForward:
     namespace: gilvave
     port: 6379
     localPort: 6379
-  # - resourceType: service
-  #   resourceName: rabbitmq
-  #   namespace: gilvave
-  #   port: 5672
-  #   localPort: 5672
-  # - resourceType: service
-  #   resourceName: rabbitmq
-  #   namespace: gilvave
-  #   port: 15672
-  #   localPort: 15672
   - resourceType: service
     resourceName: iggy
     namespace: gilvave

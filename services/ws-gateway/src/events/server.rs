@@ -15,7 +15,7 @@ pub enum ServerEvent {
     Error {
         message: String,
     },
-    MessageNew(MessageView),
+    MessageCreate(MessageView),
     MessageUpdate(MessageView),
     MessageDelete {
         channel_id: ChannelId,
@@ -27,7 +27,6 @@ pub enum ServerEvent {
 }
 
 impl ServerEvent {
-    /// Сериализует событие в иммутабельный разделяемый Arc<str> один раз для всех получателей
     pub fn to_json(&self) -> Arc<str> {
         Arc::from(serde_json::to_string(self).unwrap_or_else(|_| "{}".to_string()))
     }

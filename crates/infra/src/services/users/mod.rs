@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod friends;
 pub mod profile;
 pub mod sessions;
 
@@ -13,6 +14,7 @@ pub struct UsersService {
     pub auth: auth::AuthService,
     pub profile: profile::ProfileService,
     pub sessions: sessions::SessionsService,
+    pub friends: friends::FriendsService,
 }
 
 impl UsersService {
@@ -21,7 +23,8 @@ impl UsersService {
             db: db.clone(),
             auth: auth::AuthService { db: db.clone() },
             profile: profile::ProfileService { db: db.clone() },
-            sessions: sessions::SessionsService::new(db),
+            sessions: sessions::SessionsService::new(db.clone()),
+            friends: friends::FriendsService::new(db),
         }
     }
 

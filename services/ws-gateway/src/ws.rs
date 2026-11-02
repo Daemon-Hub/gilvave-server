@@ -16,8 +16,8 @@ use gilvave_core::{
     dto::users::User,
     error::CoreError,
     ids::{ServerId, UserId},
-    security::auth::extract_claims_from_headers,
 };
+use gilvave_security::auth::extract_claims_from_headers;
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,

@@ -27,33 +27,13 @@ impl BrokerEvent {
         match self {
             Self::MessageCreated { message } => {
                 let channel_id = message.channel_id;
-                let server_event = ServerEvent::MessageNew(message);
-                let json = server_event.to_json();
-
-                let (channels, users) = tokio::join!(state.channels.read(), state.users.read());
-
-                if let Some(channel_users) = channels.get(&channel_id) {
-                    for uid in channel_users {
-                        if let Some(user_tx) = users.get(uid) {
-                            user_tx.send(json.clone()).ok();
-                        }
-                    }
-                }
+                let server_event = ServerEvent::MessageCreate(message);
+                state.broadcast_to_channel(channel_id, server_event).await;
             }
             Self::MessageUpdated { message } => {
                 let channel_id = message.channel_id;
                 let server_event = ServerEvent::MessageUpdate(message);
-                let json = server_event.to_json();
-
-                let (channels, users) = tokio::join!(state.channels.read(), state.users.read());
-
-                if let Some(channel_users) = channels.get(&channel_id) {
-                    for uid in channel_users {
-                        if let Some(user_tx) = users.get(uid) {
-                            user_tx.send(json.clone()).ok();
-                        }
-                    }
-                }
+                state.broadcast_to_channel(channel_id, server_event).await;
             }
             Self::MessageDeleted {
                 channel_id,
@@ -63,17 +43,7 @@ impl BrokerEvent {
                     channel_id,
                     message_id,
                 };
-                let json = server_event.to_json();
-
-                let (channels, users) = tokio::join!(state.channels.read(), state.users.read());
-
-                if let Some(channel_users) = channels.get(&channel_id) {
-                    for uid in channel_users {
-                        if let Some(user_tx) = users.get(uid) {
-                            user_tx.send(json.clone()).ok();
-                        }
-                    }
-                }
+                state.broadcast_to_channel(channel_id, server_event).await;
             }
         }
     }

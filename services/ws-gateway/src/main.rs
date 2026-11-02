@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let state = state::AppState::new(db).await;
 
     let queue_name = format!("gateway_events_{}", state.node_id);
-    let mut rabbit_rx = start_consumer(state.broker.get_channel(), &queue_name).await;
+    let mut iggy_rx = start_consumer(state.broker.get_client(), &queue_name).await;
 
     // Ограничиваем параллелизм — backpressure + контроль за пулом БД
     let concurrency = std::sync::Arc::new(Semaphore::new(100));
@@ -38,10 +38,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Параллельная обработка событий с backpressure
     tokio::spawn(async move {
-        tracing::info!("[RabbitMQ] Started listening events");
+        tracing::info!("[Iggy] Started listening events");
 
-        while let Some(json_str) = rabbit_rx.recv().await {
-            let permit = concurrency.clone().acquire_owned().await.unwrap();
+        while let Some(json_str) = iggy_rx.recv().await {
+            let Ok(permit) = concurrency.clone().acquire_owned().await else {
+                break;
+            };
             let state = broadcast_state.clone();
 
             tokio::spawn(async move {
@@ -49,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let event: events::BrokerEvent = match serde_json::from_str(&json_str) {
                     Ok(e) => e,
                     Err(e) => {
-                        tracing::error!("[RabbitMQ] Failed to parse broadcast event: {e}");
+                        tracing::error!("[Iggy] Failed to parse broadcast event: {e}");
                         return;
                     }
                 };

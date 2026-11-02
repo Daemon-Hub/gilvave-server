@@ -7,10 +7,16 @@ use axum::{
 use std::net::IpAddr;
 
 use gilvave_core::{
-    dto::users::{auth::Claims, sessions::{RefreshTokenRequest, SessionView}}, error::CoreError, ids::SessionId, security::{
-        auth::extract_cookie,
-        jwt::{create_jwt, generate_url_safe_token, hash_refresh_token},
+    dto::users::{
+        auth::Claims,
+        sessions::{RefreshTokenRequest, SessionView},
     },
+    error::CoreError,
+    ids::SessionId,
+};
+use gilvave_security::{
+    auth::extract_cookie,
+    jwt::{create_jwt, generate_url_safe_token, hash_refresh_token},
 };
 
 use crate::{handlers::users::build_tokens_response, state::AppState};

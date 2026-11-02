@@ -75,13 +75,44 @@
         "version": "2.0.0",
         "tasks": [
             {
+                "label": "BUILD ALL SERVICES",
+                "type": "shell",
+                "command": "cargo build --bins",
+                "group": {
+                    "kind": "build",
+                    "isDefault": true
+                },
+                "problemMatcher": [
+                    "$rustc"
+                ]
+            },
+            {
+                "label": "RUN ALL SERVICES",
+                "dependsOn": [
+                    "HTTP RUN",
+                    "WS GATEWAY RUN",
+                    "API GATEWAY RUN"
+                ],
+                "dependsOrder": "parallel",
+                "problemMatcher": []
+            },
+            {
+                "label": "DEV: COMPOSE + RUN ALL",
+                "dependsOn": [
+                    "docker compose up",
+                    "RUN ALL SERVICES"
+                ],
+                "dependsOrder": "sequence",
+                "problemMatcher": []
+            },
+            {
                 "label": "HTTP RUN",
                 "type": "shell",
                 "command": "cargo run -p gilvave-http-api",
                 "problemMatcher": [
                     "$rustc-watch"
                 ],
-                "isBackground": true
+                "isBackground": true,
             },
             {
                 "label": "WS GATEWAY RUN",
@@ -99,7 +130,7 @@
                 "problemMatcher": [
                     "$rustc-watch"
                 ],
-                "isBackground": true
+                "isBackground": true,
             },
             {
                 "label": "docker compose up",

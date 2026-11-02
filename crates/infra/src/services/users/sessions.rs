@@ -6,8 +6,8 @@ use gilvave_core::{
     dto::users::sessions::{BlacklistInfo, SessionCreateInfo, SessionIds, SessionView},
     error::DatabaseError,
     ids::{SessionId, UserId},
-    security::jwt::decode_jwt,
 };
+use gilvave_security::jwt::decode_jwt;
 use gilvave_settings::settings;
 use time::OffsetDateTime;
 

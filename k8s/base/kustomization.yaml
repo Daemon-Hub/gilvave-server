@@ -7,6 +7,5 @@ resources:
   - namespace.yaml
   - postgres.yaml
   - redis.yaml
-  # - rabbitmq.yaml
   - iggy.yaml
   - seaweedfs.yaml

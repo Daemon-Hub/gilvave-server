@@ -6,7 +6,11 @@ use axum::{
 };
 
 use crate::state::AppState;
-use gilvave_core::{dto::{servers::*, users::auth::Claims}, error::CoreError, ids::ServerId};
+use gilvave_core::{
+    dto::{servers::*, users::auth::Claims},
+    error::CoreError,
+    ids::ServerId,
+};
 
 pub async fn get_user_servers(
     State(state): State<AppState>,

@@ -10,8 +10,8 @@ use tokio::sync::OnceCell;
 use crate::auth::{extract_token, is_public_path};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::rate_limiter::RateLimiter;
-use gilvave_core::security::jwt::decode_jwt;
 use gilvave_redis::RedisService;
+use gilvave_security::jwt::decode_jwt;
 
 const MAX_PAYLOAD_SIZE: usize = 10 * 1024 * 1024;
 
