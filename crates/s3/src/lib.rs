@@ -39,20 +39,20 @@ impl S3 {
         }
     }
 
-    /// Создает бакет, если его не существует
-    pub async fn create_bucket(&self, bucket: &str) -> Result<(), Box<dyn std::error::Error>> {
+    /// Создание бакета
+    pub async fn create_bucket(&self, bucket: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.client.create_bucket().bucket(bucket).send().await?;
         Ok(())
     }
 
-    /// Загружает объект в хранилище
+    /// Загрузка объекта
     async fn send(
         &self,
         bucket: &str,
         key: &str,
         body: ByteStream,
         content_type: Option<&str>,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let mut req = self.client.put_object().bucket(bucket).key(key).body(body);
 
         if let Some(ct) = content_type {
@@ -63,12 +63,12 @@ impl S3 {
         Ok(format!("{}/{}/{}", settings!().s3_url, bucket, key))
     }
 
-    /// Скачивает объект из хранилища
+    /// Получение объекта
     async fn get(
         &self,
         bucket: &str,
         key: &str,
-    ) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error + Send + Sync>> {
         let resp = self
             .client
             .get_object()
@@ -80,69 +80,111 @@ impl S3 {
         Ok(data)
     }
 
-    /// Загружает статический объект (аватарки, иконки, смайлики и т.д.) в хранилище
+    /// Удаление объекта
+    pub async fn delete_object(
+        &self,
+        bucket: &str,
+        key: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.client
+            .delete_object()
+            .bucket(bucket)
+            .key(key)
+            .send()
+            .await?;
+        Ok(())
+    }
+
+    /// Удаление изображения
+    pub async fn delete_image(&self, key: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.delete_object("images", key).await
+    }
+
+    /// Удаление видео
+    pub async fn delete_video(&self, key: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.delete_object("videos", key).await
+    }
+
+    /// Удаление файла
+    pub async fn delete_file(&self, key: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.delete_object("files", key).await
+    }
+
+    /// Загрузка статики
     pub async fn send_static(
         &self,
         key: &str,
         body: ByteStream,
         content_type: Option<&str>,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         self.send("static", key, body, content_type).await
     }
 
-    /// Загружает изображение (картинки, скриншоты, мемы) в хранилище
+    /// Загрузка изображения
     pub async fn send_image(
         &self,
         key: &str,
         body: ByteStream,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        self.send("images", key, body, None).await
+        content_type: Option<&str>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        self.send("images", key, body, content_type).await
     }
 
-    /// Загружает видео в хранилище
+    /// Загрузка видео
     pub async fn send_video(
         &self,
         key: &str,
         body: ByteStream,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        self.send("videos", key, body, None).await
+        content_type: Option<&str>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        self.send("videos", key, body, content_type).await
     }
 
-    /// Загружает файл (документы, архивы, логи) в хранилище
+    /// Загрузка файла
     pub async fn send_file(
         &self,
         key: &str,
         body: ByteStream,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        self.send("files", key, body, None).await
+        content_type: Option<&str>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        self.send("files", key, body, content_type).await
     }
 
-    /// Скачивает статический объект (аватарки, иконки, смайлики и т.д.) из хранилища
+    /// Получение статики
     pub async fn get_static(
         &self,
         key: &str,
-    ) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error + Send + Sync>> {
         self.get("static", key).await
     }
 
-    /// Скачивает изображение (картинки, скриншоты, мемы) из хранилища
+    /// Получение изображения
     pub async fn get_image(
         &self,
         key: &str,
-    ) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error + Send + Sync>> {
         self.get("images", key).await
     }
 
-    /// Скачивает видео из хранилища
+    /// Получение видео
     pub async fn get_video(
         &self,
         key: &str,
-    ) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error + Send + Sync>> {
         self.get("videos", key).await
     }
 
-    /// Скачивает файл (документы, архивы, логи) из хранилища
-    pub async fn get_file(&self, key: &str) -> Result<AggregatedBytes, Box<dyn std::error::Error>> {
+    /// Получение файла
+    pub async fn get_file(&self, key: &str) -> Result<AggregatedBytes, Box<dyn std::error::Error + Send + Sync>> {
         self.get("files", key).await
+    }
+
+    /// Получение из бакета
+    pub async fn get_by_bucket(
+        &self,
+        bucket: &str,
+        key: &str,
+    ) -> Result<AggregatedBytes, Box<dyn std::error::Error + Send + Sync>> {
+        self.get(bucket, key).await
     }
 }

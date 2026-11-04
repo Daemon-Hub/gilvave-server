@@ -87,3 +87,17 @@ pub async fn create_theme(
     state.users.profile.create_theme(author, body).await?;
     Ok(())
 }
+
+pub async fn update_profile(
+    State(state): State<AppState>,
+    Extension(claims): Extension<Claims>,
+    Json(info): Json<UpdateProfileInfo>,
+) -> Result<Json<UserView>, CoreError> {
+    let user_view = state
+        .users
+        .profile
+        .update_profile(claims.sub, info)
+        .await?
+        .ok_or_else(|| CoreError::Unauthorized("User not found".to_string()))?;
+    Ok(Json(user_view))
+}

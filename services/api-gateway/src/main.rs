@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracing::info!("[GATEWAY] Edge CORS:        Enabled");
     tracing::info!("[GATEWAY] Edge Auth:        Enabled (JWT + Redis Revocation Check)");
     tracing::info!("[GATEWAY] Rate Limiter:     Enabled (10 req/s per IP)");
-    tracing::info!("[GATEWAY] Payload Limit:    Enabled (10 MB)");
+    tracing::info!("[GATEWAY] Payload Limit:    Enabled (100 MB)");
     tracing::info!("[GATEWAY] Circuit Breaker:  Enabled");
 
     let mut server = Server::new(None)?;

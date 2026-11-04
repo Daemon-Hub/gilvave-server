@@ -9,7 +9,7 @@ use uuid::Uuid;
 use gilvave_core::ids::{ChannelId, UserId};
 use gilvave_infra::{
     db::Database,
-    services::{MessagesService, ServersService, UsersService},
+    services::{FilesService, MessagesService, ServersService, UsersService},
 };
 use gilvave_messaging::IggyBroker;
 use gilvave_redis::RedisService;
@@ -35,6 +35,7 @@ pub struct AppState {
     pub users_service: UsersService,
     pub messages_service: MessagesService,
     pub servers_service: ServersService,
+    pub files_service: FilesService,
 }
 
 impl AppState {
@@ -49,7 +50,8 @@ impl AppState {
             broker: IggyBroker::new(&node_id.to_string()).await.unwrap(),
             users_service: UsersService::new(db.clone()),
             messages_service: MessagesService { db: db.clone() },
-            servers_service: ServersService::new(db),
+            servers_service: ServersService::new(db.clone()),
+            files_service: FilesService::new(db),
         }
     }
 

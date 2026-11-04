@@ -12,6 +12,7 @@ tracing-subscriber.workspace = true
 jsonwebtoken.workspace = true
 mimalloc.workspace = true
 uuid.workspace = true
+time.workspace = true
 
 gilvave-core = { path = "../../crates/core" }
 gilvave-security = { path = "../../crates/security" }

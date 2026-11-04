@@ -12,6 +12,7 @@ pub struct AppState(Arc<AppStateInner>);
 pub struct AppStateInner {
     pub users: UsersService,
     pub servers: ServersService,
+    pub files: FilesService,
     pub s3: S3,
     pub redis: RedisService,
     pub email: EmailService,
@@ -22,6 +23,7 @@ impl AppState {
         let inner = AppStateInner {
             users: UsersService::new(db.clone()),
             servers: ServersService::new(db.clone()),
+            files: FilesService::new(db.clone()),
             s3: S3::new().await,
             redis: RedisService::new().await?,
             email: EmailService::new()?,

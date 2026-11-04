@@ -9,7 +9,7 @@ pub fn routes(state: AppState) -> Router {
     let public_routes = Router::new().route("/themes/{page}", get(get_themes_list));
 
     let protected_routes = Router::new()
-        .route("/me", get(get_profile))
+        .route("/me", get(get_profile).patch(update_profile))
         .route("/me/avatar", patch(update_avatar))
         .route("/themes", post(create_theme))
         .route_layer(middleware::from_fn_with_state(

@@ -6,7 +6,7 @@ use crate::db::Database;
 use gilvave_core::{
     dto::users::{
         UserView,
-        profile::{Avatar, CreateThemeInfo, ProfileView, Theme},
+        profile::{Avatar, CreateThemeInfo, UpdateProfileInfo, ProfileView, Theme},
     },
     error::*,
     ids::UserId,
@@ -63,6 +63,48 @@ impl ProfileService {
             )
             .await?;
         ProfileView::from_row(&row)
+    }
+
+    pub async fn update_profile(
+        &self,
+        user_id: UserId,
+        info: UpdateProfileInfo,
+    ) -> Result<Option<UserView>, DatabaseError> {
+        if let Some(ref username) = info.username {
+            let trimmed = username.trim();
+            if !trimmed.is_empty() {
+                self.db
+                    .execute(
+                        "UPDATE users SET username = $1 WHERE id = $2;",
+                        &[&trimmed, &user_id],
+                    )
+                    .await?;
+            }
+        }
+
+        let name_val = info.name.or(info.username);
+        self.db
+            .execute(
+                r#"
+                INSERT INTO profile (user_id, name, bio, avatar, settings)
+                VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), COALESCE($4, ''), '{}'::jsonb)
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    name = COALESCE(NULLIF($2, ''), profile.name),
+                    bio = COALESCE($3, profile.bio),
+                    avatar = COALESCE($4, profile.avatar);
+                "#,
+                &[
+                    &user_id,
+                    &name_val,
+                    &info.bio,
+                    &info.avatar,
+                ],
+            )
+            .await?;
+
+        self.get_user_view(user_id).await
+
     }
 
     pub async fn get_themes_list(&self, offset: i64) -> Result<(Vec<Theme>, bool), DatabaseError> {

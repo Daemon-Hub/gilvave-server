@@ -14,7 +14,7 @@ pub fn routes(state: AppState) -> Router {
 
     let protected_routes = Router::new()
         .route("/", get(get_user_servers).post(create_server))
-        .route("/{server_id}", get(get_server_by_id))
+        .route("/{server_id}", get(get_server_by_id).patch(update_server))
         .route("/{server_id}/join_public", post(join_public))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),

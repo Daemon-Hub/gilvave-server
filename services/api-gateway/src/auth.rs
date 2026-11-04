@@ -28,6 +28,8 @@ pub fn is_public_path(path: &str) -> bool {
         || path.starts_with("/api/users/profile/themes")
         || path.starts_with("/users/themes")
         || path.starts_with("/api/users/themes")
+        || path.starts_with("/files/")
+        || path.starts_with("/api/files/")
 }
 
 /// Извлечение токена из заголовков (Authorization, Cookie, Sec-WebSocket-Protocol) или Query-параметров.

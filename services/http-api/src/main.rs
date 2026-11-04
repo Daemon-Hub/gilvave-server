@@ -34,6 +34,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let state = AppState::new(db).await?;
 
     let app = routes::routes(state.clone())
+        .layer(axum::extract::DefaultBodyLimit::max(
+            (gilvave_core::files::MAX_FILE_SIZE_BYTES + 5 * 1024 * 1024) as usize,
+        ))
         .layer(axum::middleware::from_fn(client_ip_middleware))
         .layer(axum::middleware::from_fn(tracing_middleware))
         .into_make_service_with_connect_info::<SocketAddr>();

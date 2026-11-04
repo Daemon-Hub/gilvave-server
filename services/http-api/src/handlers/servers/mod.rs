@@ -71,3 +71,15 @@ pub async fn get_members(
 ) -> Result<Json<Vec<MemberView>>, CoreError> {
     Ok(Json(state.servers.get_members(server_id).await?))
 }
+
+pub async fn update_server(
+    Path(server_id): Path<ServerId>,
+    State(state): State<AppState>,
+    Extension(claims): Extension<Claims>,
+    Json(info): Json<UpdateServerInfo>,
+) -> Result<Json<Server>, CoreError> {
+    if !state.servers.is_user_owned(claims.sub, server_id).await? {
+        return Err(CoreError::Forbidden("Only the server owner can modify server settings".to_string()));
+    }
+    Ok(Json(state.servers.update(server_id, claims.sub, info).await?))
+}

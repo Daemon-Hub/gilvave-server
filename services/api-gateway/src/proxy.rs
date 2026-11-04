@@ -13,7 +13,7 @@ use crate::rate_limiter::RateLimiter;
 use gilvave_redis::RedisService;
 use gilvave_security::jwt::decode_jwt;
 
-const MAX_PAYLOAD_SIZE: usize = 10 * 1024 * 1024;
+const MAX_PAYLOAD_SIZE: usize = 105 * 1024 * 1024;
 
 fn attach_cors_headers(resp: &mut ResponseHeader, session: &Session) {
     if let Some(origin) = session.req_header().headers.get("Origin") {
@@ -161,7 +161,7 @@ impl ProxyHttp for GilvaveApiGateway {
             let _ = resp.append_header("Content-Type", "application/json");
             let _ = resp.append_header("X-Request-ID", &ctx.request_id);
             let body =
-                Bytes::from_static(b"{\"error\":\"Payload Too Large: Maximum size is 10MB\"}");
+                Bytes::from_static(b"{\"error\":\"Payload Too Large: Maximum size is 100MB\"}");
             let _ = resp.append_header("Content-Length", body.len().to_string());
 
             session.write_response_header(Box::new(resp), false).await?;

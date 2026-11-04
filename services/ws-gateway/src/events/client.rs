@@ -82,6 +82,8 @@ impl EventHandler for ClientEvent {
                     }
                 };
 
+                let file_ids = gilvave_core::files::extract_file_ids_from_text(&sanitized_content);
+
                 match state
                     .messages_service
                     .create(CreateInfo {
@@ -95,6 +97,12 @@ impl EventHandler for ClientEvent {
                     .await
                 {
                     Ok(message_view) => {
+                        for file_id in file_ids {
+                            if let Err(e) = state.files_service.link_to_message(file_id, message_view.id, user.id).await {
+                                tracing::warn!("[Files] Failed to link file {file_id} to message {}: {e}", message_view.id);
+                            }
+                        }
+
                         let broker_event = BrokerEvent::MessageCreated {
                             message: message_view,
                         };

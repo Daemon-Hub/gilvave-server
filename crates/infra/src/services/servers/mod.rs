@@ -51,6 +51,41 @@ impl ServersService {
         Ok(server)
     }
 
+    pub async fn update(
+        &self,
+        server_id: ServerId,
+        user_id: UserId,
+        info: UpdateServerInfo,
+    ) -> Result<Server, DatabaseError> {
+        let row = self
+            .db
+            .query_one(
+                r#"
+                UPDATE servers
+                SET
+                    name = COALESCE($3, name),
+                    description = COALESCE($4, description),
+                    icon_url = COALESCE($5, icon_url),
+                    cover = COALESCE($6, cover),
+                    is_public = COALESCE($7, is_public)
+                WHERE id = $1 AND owner_id = $2
+                RETURNING *;
+                "#,
+                &[
+                    &server_id.0,
+                    &user_id.0,
+                    &info.name,
+                    &info.description,
+                    &info.icon_url,
+                    &info.cover,
+                    &info.is_public,
+                ],
+            )
+            .await?;
+
+        Server::from_row(&row)
+    }
+
     /// Получить полную информацию о сервере по его ID
     pub async fn get_by_id(
         &self,

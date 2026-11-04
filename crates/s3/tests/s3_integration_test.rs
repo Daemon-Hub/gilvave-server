@@ -19,7 +19,7 @@ async fn test_s3_upload_and_download_real_image() {
     let byte_stream = ByteStream::from(original_data.clone());
     let key = "real_test_image.png";
 
-    s3.send_image(key, byte_stream)
+    s3.send_image(key, byte_stream, Some("image/png"))
         .await
         .expect("Загрузка упала");
 
