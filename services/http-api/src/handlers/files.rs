@@ -165,7 +165,21 @@ pub async fn download_file(
             }
         })
         .collect();
-    let disposition = format!("{disposition_type}; filename=\"{safe_ascii_name}\"");
+
+    // RFC 5987 / RFC 6266 percent-encoded UTF-8 filename for full Unicode (Cyrillic, emojis, etc.)
+    let mut encoded_name = String::with_capacity(file.name.len() * 3);
+    for b in file.name.as_bytes() {
+        if b.is_ascii_alphanumeric() || matches!(*b, b'.' | b'-' | b'_' | b'~') {
+            encoded_name.push(*b as char);
+        } else {
+            use std::fmt::Write;
+            let _ = write!(encoded_name, "%{:02X}", b);
+        }
+    }
+
+    let disposition = format!(
+        "{disposition_type}; filename=\"{safe_ascii_name}\"; filename*=UTF-8''{encoded_name}"
+    );
     let cd = HeaderValue::from_str(&disposition)
         .unwrap_or(HeaderValue::from_static("inline"));
     headers.insert(header::CONTENT_DISPOSITION, cd);
