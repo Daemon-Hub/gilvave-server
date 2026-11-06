@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{events::ServerEvent, state::AppState};
 use gilvave_core::{
     dto::messages::MessageView,
-    ids::{ChannelId, MessageId},
+    ids::{ChannelId, MessageId, ServerId, UserId},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,6 +19,14 @@ pub enum BrokerEvent {
     MessageDeleted {
         channel_id: ChannelId,
         message_id: MessageId,
+    },
+    UserOnline {
+        user_id: UserId,
+        server_ids: Vec<ServerId>,
+    },
+    UserOffline {
+        user_id: UserId,
+        server_ids: Vec<ServerId>,
     },
 }
 
@@ -45,6 +53,26 @@ impl BrokerEvent {
                 };
                 state.broadcast_to_channel(channel_id, server_event).await;
             }
+            Self::UserOnline {
+                user_id,
+                server_ids,
+            } => match state.redis.get_users_online(&server_ids).await {
+                Ok(users) => {
+                    let server_event = ServerEvent::UserOnline { user_id };
+                    state.broadcast_to_users(&users, server_event).await;
+                }
+                Err(e) => tracing::error!("[WS] Failed to collect user servers online status: {e}"),
+            },
+            Self::UserOffline {
+                user_id,
+                server_ids,
+            } => match state.redis.get_users_online(&server_ids).await {
+                Ok(users) => {
+                    let server_event = ServerEvent::UserOffline { user_id };
+                    state.broadcast_to_users(&users, server_event).await;
+                }
+                Err(e) => tracing::error!("[WS] Failed to collect user servers online status: {e}"),
+            },
         }
     }
 }

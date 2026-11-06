@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use fred::error::Error as RedisError;
 use fred::prelude::*;
 
@@ -68,6 +70,30 @@ impl RedisService {
 
         trx.exec::<()>(true).await?;
         Ok(())
+    }
+
+    pub async fn get_server_online(&self, sid: ServerId) -> Result<Vec<UserId>, RedisError> {
+        let key = format!("server:{sid}:online");
+        let users = self.pool.get::<Vec<UserId>, String>(key).await?;
+        Ok(users)
+    }
+
+    pub async fn get_users_online(&self, sids: &[ServerId]) -> Result<Vec<UserId>, RedisError> {
+        let client = self.pool.next();
+
+        let pipe = client.pipeline();
+        for sid in sids {
+            pipe.get::<Vec<UserId>, String>(format!("server:{sid}:online"))
+                .await?;
+        }
+        let results: Vec<Result<Vec<UserId>, _>> = pipe.try_all().await;
+
+        let mut unique_users: HashSet<UserId> = HashSet::new();
+        for result in results {
+            unique_users.extend(result?);
+        }
+
+        Ok(unique_users.into_iter().collect())
     }
 
     /// Добавить сессию в черный список

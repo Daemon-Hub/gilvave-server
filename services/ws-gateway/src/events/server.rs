@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use gilvave_core::{
     dto::messages::MessageView,
-    ids::{ChannelId, MessageId},
+    ids::{ChannelId, MessageId, ServerId, UserId},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,6 +24,16 @@ pub enum ServerEvent {
     JoinSuccess,
     ChannelHistoryBefore(Vec<MessageView>),
     ChannelHistoryAfter(Vec<MessageView>),
+    ServerOnline {
+        server_id: ServerId,
+        online_users: Vec<UserId>,
+    },
+    UserOnline {
+        user_id: UserId,
+    },
+    UserOffline {
+        user_id: UserId,
+    },
 }
 
 impl ServerEvent {

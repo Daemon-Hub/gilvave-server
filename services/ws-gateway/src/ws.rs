@@ -8,9 +8,9 @@ use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, UnboundedSender};
 
-use crate::dispatch_event;
 use crate::events::{ClientEvent, EventHandler, ServerEvent};
 use crate::state::AppState;
+use crate::{dispatch_event, events::BrokerEvent};
 
 use gilvave_core::{
     dto::users::User,
@@ -81,6 +81,15 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
                 .await
                 .map_err(|e| tracing::error!("[Redis] Failed to set user online: {}", e))
                 .ok();
+
+            let broker_event = BrokerEvent::UserOnline {
+                user_id: user.id,
+                server_ids,
+            };
+
+            if let Err(e) = state.broker.publish(&broker_event).await {
+                tracing::error!("[Apache Iggy] Publish error: {e}");
+            }
         }
     );
 
@@ -155,6 +164,15 @@ async fn cleanup_user(
                 .await
                 .map_err(|e| tracing::error!("[Redis] Failed to delete user online: {}", e))
                 .ok();
+
+            let broker_event = BrokerEvent::UserOffline {
+                user_id,
+                server_ids,
+            };
+
+            if let Err(e) = state.broker.publish(&broker_event).await {
+                tracing::error!("[Apache Iggy] Publish error: {e}");
+            }
         }
     );
     tracing::info!("[WS] User {} cleaned up", user_id.0);

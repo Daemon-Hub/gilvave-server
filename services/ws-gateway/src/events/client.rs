@@ -11,7 +11,7 @@ use gilvave_core::{
         messages::{CreateInfo, GetHistoryInfo},
         users::User,
     },
-    ids::{ChannelId, MessageId},
+    ids::{ChannelId, MessageId, ServerId},
     validation::validate_message,
 };
 
@@ -37,6 +37,9 @@ pub enum ClientEvent {
     MessageDelete {
         channel_id: ChannelId,
         message_id: MessageId,
+    },
+    ServerOnline {
+        server_id: ServerId,
     },
     JoinChannel {
         channel_id: ChannelId,
@@ -72,12 +75,17 @@ impl EventHandler for ClientEvent {
                 let sanitized_content = match validate_message(&content) {
                     Ok(s) => s,
                     Err(err_msg) => {
-                        _ = sender.send(
-                            ServerEvent::Error {
-                                message: err_msg.into(),
-                            }
-                            .to_json(),
-                        );
+                        sender
+                            .send(
+                                ServerEvent::Error {
+                                    message: err_msg.into(),
+                                }
+                                .to_json(),
+                            )
+                            .map_err(|e| {
+                                tracing::error!("[WS] Failed to send sanitized message error: {e}")
+                            })
+                            .ok();
                         return;
                     }
                 };
@@ -98,8 +106,15 @@ impl EventHandler for ClientEvent {
                 {
                     Ok(message_view) => {
                         for file_id in file_ids {
-                            if let Err(e) = state.files_service.link_to_message(file_id, message_view.id, user.id).await {
-                                tracing::warn!("[Files] Failed to link file {file_id} to message {}: {e}", message_view.id);
+                            if let Err(e) = state
+                                .files_service
+                                .link_to_message(file_id, message_view.id, user.id)
+                                .await
+                            {
+                                tracing::warn!(
+                                    "[Files] Failed to link file {file_id} to message {}: {e}",
+                                    message_view.id
+                                );
                             }
                         }
 
@@ -109,22 +124,34 @@ impl EventHandler for ClientEvent {
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
                             tracing::error!("[Apache Iggy] Publish error: {}", e);
-                            _ = sender.send(
-                                ServerEvent::Error {
-                                    message: "Failed to broadcast".into(),
-                                }
-                                .to_json(),
-                            );
+                            sender
+                                .send(
+                                    ServerEvent::Error {
+                                        message: "Failed to broadcast".into(),
+                                    }
+                                    .to_json(),
+                                )
+                                .map_err(|e| {
+                                    tracing::error!(
+                                        "[WS] Failed to send message created event error: {e}"
+                                    )
+                                })
+                                .ok();
                         }
                     }
                     Err(e) => {
-                        tracing::error!("[DB] Failed to save message to DB: {}", e);
-                        _ = sender.send(
-                            ServerEvent::Error {
-                                message: "Failed to send message".into(),
-                            }
-                            .to_json(),
-                        );
+                        tracing::error!("[DB] Failed to save message to DB: {e}");
+                        sender
+                            .send(
+                                ServerEvent::Error {
+                                    message: "Failed to send message".into(),
+                                }
+                                .to_json(),
+                            )
+                            .map_err(|e| {
+                                tracing::error!("[WS] Failed to send message created event error: {e}")
+                            })
+                            .ok();
                     }
                 }
             }
@@ -136,12 +163,17 @@ impl EventHandler for ClientEvent {
                 let sanitized_content = match validate_message(&content) {
                     Ok(s) => s,
                     Err(err_msg) => {
-                        _ = sender.send(
-                            ServerEvent::Error {
-                                message: err_msg.into(),
-                            }
-                            .to_json(),
-                        );
+                        sender
+                            .send(
+                                ServerEvent::Error {
+                                    message: err_msg.into(),
+                                }
+                                .to_json(),
+                            )
+                            .map_err(|e| {
+                                tracing::error!("[WS] Failed to send message update event error: {e}")
+                            })
+                            .ok();
                         return;
                     }
                 };
@@ -158,22 +190,32 @@ impl EventHandler for ClientEvent {
 
                         if let Err(e) = state.broker.publish(&broker_event).await {
                             tracing::error!("[Apache Iggy] Publish error: {}", e);
-                            _ = sender.send(
-                                ServerEvent::Error {
-                                    message: "Failed to broadcast".into(),
-                                }
-                                .to_json(),
-                            );
+                            sender
+                                .send(
+                                    ServerEvent::Error {
+                                        message: "Failed to broadcast".into(),
+                                    }
+                                    .to_json(),
+                                )
+                                .map_err(|e| {
+                                    tracing::error!("[WS] Failed to send message update event error: {e}")
+                                })
+                                .ok();
                         }
                     }
                     Err(e) => {
                         tracing::error!("[DB] Failed to update message in DB: {}", e);
-                        _ = sender.send(
-                            ServerEvent::Error {
-                                message: "Failed to update message".into(),
-                            }
-                            .to_json(),
-                        );
+                        sender
+                            .send(
+                                ServerEvent::Error {
+                                    message: "Failed to update message".into(),
+                                }
+                                .to_json(),
+                            )
+                            .map_err(|e| {
+                                tracing::error!("[WS] Failed to send message update error: {e}")
+                            })
+                            .ok();
                     }
                 }
             }
@@ -194,32 +236,77 @@ impl EventHandler for ClientEvent {
                             };
 
                             if let Err(e) = state.broker.publish(&broker_event).await {
-                                tracing::error!("[Apache Iggy] Publish error: {}", e);
-                                _ = sender.send(
-                                    ServerEvent::Error {
-                                        message: "Failed to broadcast".into(),
-                                    }
-                                    .to_json(),
-                                );
+                                tracing::error!("[Apache Iggy] Publish error: {e}");
+                                sender
+                                    .send(
+                                        ServerEvent::Error {
+                                            message: "Failed to broadcast".into(),
+                                        }
+                                        .to_json(),
+                                    )
+                                    .map_err(|e| {
+                                        tracing::error!(
+                                            "[WS] Failed to send message delete event error: {e}"
+                                        )
+                                    })
+                                    .ok();
                             }
                         } else {
-                            _ = sender.send(
-                                ServerEvent::Error {
-                                    message: "Message not found or forbidden".into(),
-                                }
-                                .to_json(),
-                            );
+                            sender
+                                .send(
+                                    ServerEvent::Error {
+                                        message: "Message not found or forbidden".into(),
+                                    }
+                                    .to_json(),
+                                )
+                                .map_err(|e| {
+                                    tracing::error!("[WS] Failed to send message delete error: {e}")
+                                })
+                                .ok();
                         }
                     }
                     Err(e) => {
                         tracing::error!("[DB] Failed to delete message from DB: {}", e);
-                        _ = sender.send(
-                            ServerEvent::Error {
-                                message: "Failed to delete message".into(),
+                        sender
+                            .send(
+                                ServerEvent::Error {
+                                    message: "Failed to delete message".into(),
+                                }
+                                .to_json(),
+                            )
+                            .map_err(|e| {
+                                tracing::error!("[WS] Failed to send message delete error: {e}")
+                            })
+                            .ok();
+                    }
+                }
+            }
+            Self::ServerOnline { server_id } => {
+                if let Ok(online_users) = state.redis.get_server_online(server_id).await {
+                    sender
+                        .send(
+                            ServerEvent::ServerOnline {
+                                server_id,
+                                online_users,
                             }
                             .to_json(),
-                        );
-                    }
+                        )
+                        .map_err(|e| {
+                            tracing::error!("[WS] Failed to send server online event: {e}")
+                        })
+                        .ok();
+                } else {
+                    sender
+                        .send(
+                            ServerEvent::Error {
+                                message: "Failed to fetch online users".into(),
+                            }
+                            .to_json(),
+                        )
+                        .map_err(|e| {
+                            tracing::error!("[WS] Failed to send server online event error: {e}")
+                        })
+                        .ok();
                 }
             }
             Self::JoinChannel { channel_id } => {

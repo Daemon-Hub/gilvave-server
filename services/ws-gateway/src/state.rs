@@ -55,6 +55,18 @@ impl AppState {
         }
     }
 
+    pub async fn broadcast_to_users(&self, uids: &[UserId], server_event: ServerEvent) {
+        let json = server_event.to_json();
+
+        let users = self.users.read().await;
+
+        for uid in uids {
+            if let Some(user_tx) = users.get(uid) {
+                user_tx.send(json.clone()).ok();
+            }
+        }
+    }
+
     pub async fn broadcast_to_channel(&self, channel_id: ChannelId, server_event: ServerEvent) {
         let json = server_event.to_json();
 

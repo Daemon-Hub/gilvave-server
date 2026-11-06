@@ -3,6 +3,11 @@ use std::fmt::Display;
 use uuid::{Error, Uuid};
 
 use bytes::BytesMut;
+use fred::{
+    error::{Error as RedisError, ErrorKind},
+    prelude::FromValue,
+    types::Value,
+};
 use tokio_postgres::types::{FromSql, IsNull, ToSql, Type};
 
 macro_rules! id_type {
@@ -95,6 +100,15 @@ macro_rules! id_type {
 
             fn accepts(ty: &Type) -> bool {
                 <Uuid as FromSql>::accepts(ty)
+            }
+        }
+
+        // ===== REDIS IMPLEMENTATIONS =====
+        impl FromValue for $name {
+            fn from_value(value: Value) -> Result<Self, RedisError> {
+                let json_str: String = value.convert()?;
+                serde_json::from_str(&json_str)
+                    .map_err(|e| RedisError::new(ErrorKind::Parse, e.to_string()))
             }
         }
     };
