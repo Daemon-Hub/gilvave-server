@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use fred::error::Error as RedisError;
 use fred::prelude::*;
 
@@ -72,28 +70,26 @@ impl RedisService {
         Ok(())
     }
 
+    /// Получить список пользователей онлайн на конкретном сервере
     pub async fn get_server_online(&self, sid: ServerId) -> Result<Vec<UserId>, RedisError> {
         let key = format!("server:{sid}:online");
-        let users = self.pool.get::<Vec<UserId>, String>(key).await?;
+        let users = self.pool.smembers::<Vec<UserId>, _>(key).await?;
         Ok(users)
     }
 
+    /// Получить список пользователей онлайн на конкретных серверах
     pub async fn get_users_online(&self, sids: &[ServerId]) -> Result<Vec<UserId>, RedisError> {
-        let client = self.pool.next();
-
-        let pipe = client.pipeline();
-        for sid in sids {
-            pipe.get::<Vec<UserId>, String>(format!("server:{sid}:online"))
-                .await?;
-        }
-        let results: Vec<Result<Vec<UserId>, _>> = pipe.try_all().await;
-
-        let mut unique_users: HashSet<UserId> = HashSet::new();
-        for result in results {
-            unique_users.extend(result?);
+        if sids.is_empty() {
+            return Ok(Vec::new());
         }
 
-        Ok(unique_users.into_iter().collect())
+        let keys: Vec<String> = sids
+            .iter()
+            .map(|sid| format!("server:{sid}:online"))
+            .collect();
+
+        let users = self.pool.sunion::<Vec<UserId>, _>(keys).await?;
+        Ok(users)
     }
 
     /// Добавить сессию в черный список

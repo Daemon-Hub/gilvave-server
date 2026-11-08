@@ -95,8 +95,14 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
 
     let recv_task = async {
         while let Some(Ok(msg)) = receiver.next().await {
-            if let Ok(text) = msg.into_text() {
-                handle_event(&text, state.clone(), user.clone(), tx.clone()).await;
+            match msg {
+                Message::Text(text) => {
+                    handle_event(text.as_str(), state.clone(), user.clone(), tx.clone()).await;
+                }
+                Message::Close(_) => {
+                    break;
+                }
+                Message::Ping(_) | Message::Pong(_) | Message::Binary(_) => {}
             }
         }
     };

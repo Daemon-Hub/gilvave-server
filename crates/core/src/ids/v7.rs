@@ -106,8 +106,9 @@ macro_rules! id_type {
         // ===== REDIS IMPLEMENTATIONS =====
         impl FromValue for $name {
             fn from_value(value: Value) -> Result<Self, RedisError> {
-                let json_str: String = value.convert()?;
-                serde_json::from_str(&json_str)
+                let str_val: String = value.convert()?;
+                Uuid::parse_str(str_val.trim_matches('"'))
+                    .map(Self)
                     .map_err(|e| RedisError::new(ErrorKind::Parse, e.to_string()))
             }
         }
