@@ -18,11 +18,12 @@ pub struct CreateUserInfo {
 }
 
 impl CreateUserInfo {
-    pub fn to_slice(&self) -> Vec<u8> {
-        serde_json::to_vec(&self).unwrap()
+    pub fn to_slice(&self) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(self)
     }
-    pub fn from_slice(v: Vec<u8>) -> Self {
-        serde_json::from_slice(&v).unwrap()
+
+    pub fn from_slice(v: &[u8]) -> Result<Self, serde_json::Error> {
+        serde_json::from_slice(v)
     }
 }
 

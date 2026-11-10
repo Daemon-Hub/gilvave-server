@@ -24,14 +24,15 @@ impl FriendsService {
     }
 
     pub async fn get_friends(&self, user_id: UserId) -> Result<Vec<FriendView>, DatabaseError> {
-        self.db
+        let rows = self
+            .db
             .query(
                 r#"
                 SELECT 
                     u.id, 
                     u.username, 
-                    COALESCE(p.name, u.username) AS display_name,
-                    COALESCE(p.avatar, '') AS avatar,
+                    COALESCE(p.name, u.username) AS display_name, 
+                    COALESCE(p.avatar, '') AS avatar, 
                     f.created_at
                 FROM friends f
                 JOIN users u ON u.id = CASE WHEN f.user_id1 = $1 THEN f.user_id2 ELSE f.user_id1 END
@@ -46,10 +47,13 @@ impl FriendsService {
                 "#,
                 &[&user_id],
             )
-            .await?
-            .iter()
-            .map(FriendView::from_row)
-            .collect()
+            .await?;
+
+        let mut list = Vec::with_capacity(rows.len());
+        for row in &rows {
+            list.push(FriendView::from_row(row)?);
+        }
+        Ok(list)
     }
 
     pub async fn get_requests(&self, user_id: UserId) -> Result<FriendRequestsList, FriendError> {
@@ -100,15 +104,15 @@ impl FriendsService {
             ),
         )?;
 
-        let incoming = incoming_rows
-            .iter()
-            .map(FriendRequestView::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut incoming = Vec::with_capacity(incoming_rows.len());
+        for row in &incoming_rows {
+            incoming.push(FriendRequestView::from_row(row)?);
+        }
 
-        let outgoing = outgoing_rows
-            .iter()
-            .map(FriendRequestView::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut outgoing = Vec::with_capacity(outgoing_rows.len());
+        for row in &outgoing_rows {
+            outgoing.push(FriendRequestView::from_row(row)?);
+        }
 
         Ok(FriendRequestsList { incoming, outgoing })
     }
@@ -376,13 +380,14 @@ impl FriendsService {
         &self,
         blocker_id: UserId,
     ) -> Result<Vec<BlockedUserView>, DatabaseError> {
-        self.db
+        let rows = self
+            .db
             .query(
                 r#"
                 SELECT 
                     u.id, 
                     u.username, 
-                    COALESCE(p.name, u.username) AS display_name,
+                    COALESCE(p.name, u.username) AS display_name, 
                     COALESCE(p.avatar, '') AS avatar
                 FROM user_blocks ub
                 JOIN users u ON u.id = ub.blocked_id
@@ -392,9 +397,12 @@ impl FriendsService {
                 "#,
                 &[&blocker_id],
             )
-            .await?
-            .iter()
-            .map(BlockedUserView::from_row)
-            .collect()
+            .await?;
+
+        let mut list = Vec::with_capacity(rows.len());
+        for row in &rows {
+            list.push(BlockedUserView::from_row(row)?);
+        }
+        Ok(list)
     }
 }

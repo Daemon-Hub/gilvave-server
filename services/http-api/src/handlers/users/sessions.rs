@@ -27,18 +27,17 @@ pub async fn refresh_token(
     headers: HeaderMap,
     body: Option<Json<RefreshTokenRequest>>,
 ) -> Result<Response, CoreError> {
+    let body_token = body.as_ref().map(|b| b.refresh_token.as_str()).unwrap_or("");
     let (raw_refresh_token, is_web) =
         if let Some(cookie_token) = extract_cookie(&headers, "refresh_token") {
             (cookie_token, true)
-        } else if let Some(Json(req)) = body
-            && !req.refresh_token.is_empty()
-        {
-            (req.refresh_token, false)
+        } else if !body_token.is_empty() {
+            (body_token, false)
         } else {
             return Err(CoreError::Unauthorized("Missing refresh token".to_string()));
         };
 
-    let refresh_token_hash = hash_refresh_token(&raw_refresh_token);
+    let refresh_token_hash = hash_refresh_token(raw_refresh_token);
     let session = state
         .users
         .sessions

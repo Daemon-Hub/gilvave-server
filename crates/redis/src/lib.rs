@@ -4,6 +4,21 @@ use fred::prelude::*;
 use gilvave_core::ids::{ServerId, SessionId, UserId};
 use gilvave_settings::settings;
 
+#[inline]
+fn encode_blacklist_key(session_id: SessionId, buf: &mut [u8; 46]) -> &str {
+    buf[..10].copy_from_slice(b"blacklist:");
+    session_id.encode_hyphenated(&mut buf[10..46].try_into().unwrap());
+    std::str::from_utf8(buf).unwrap_or("")
+}
+
+#[inline]
+fn encode_server_online_key(server_id: ServerId, buf: &mut [u8; 50]) -> &str {
+    buf[..7].copy_from_slice(b"server:");
+    server_id.encode_hyphenated(&mut buf[7..43].try_into().unwrap());
+    buf[43..50].copy_from_slice(b":online");
+    std::str::from_utf8(buf).unwrap_or("")
+}
+
 #[derive(Clone)]
 pub struct RedisService {
     pool: Pool,
@@ -37,13 +52,15 @@ impl RedisService {
         server_ids: &[ServerId],
     ) -> Result<(), RedisError> {
         let trx = self.pool.multi();
-        let uid = user_id.to_string();
+        let mut uid_buf = [0u8; 36];
+        let uid = user_id.encode_hyphenated(&mut uid_buf);
 
-        trx.sadd::<(), &str, _>("global:online", &uid).await?;
+        trx.sadd::<(), &str, _>("global:online", &*uid).await?;
 
         for sid in server_ids {
-            trx.sadd::<(), _, _>(format!("server:{sid}:online"), &uid)
-                .await?;
+            let mut key_buf = [0u8; 50];
+            let key = encode_server_online_key(*sid, &mut key_buf);
+            trx.sadd::<(), &str, _>(key, &*uid).await?;
         }
 
         trx.exec::<()>(true).await?;
@@ -57,13 +74,15 @@ impl RedisService {
         server_ids: &[ServerId],
     ) -> Result<(), RedisError> {
         let trx = self.pool.multi();
-        let uid = user_id.to_string();
+        let mut uid_buf = [0u8; 36];
+        let uid = user_id.encode_hyphenated(&mut uid_buf);
 
-        trx.srem::<(), &str, _>("global:online", &uid).await?;
+        trx.srem::<(), &str, _>("global:online", &*uid).await?;
 
         for sid in server_ids {
-            trx.srem::<(), _, _>(format!("server:{sid}:online"), &uid)
-                .await?;
+            let mut key_buf = [0u8; 50];
+            let key = encode_server_online_key(*sid, &mut key_buf);
+            trx.srem::<(), &str, _>(key, &*uid).await?;
         }
 
         trx.exec::<()>(true).await?;
@@ -72,7 +91,8 @@ impl RedisService {
 
     /// Получить список пользователей онлайн на конкретном сервере
     pub async fn get_server_online(&self, sid: ServerId) -> Result<Vec<UserId>, RedisError> {
-        let key = format!("server:{sid}:online");
+        let mut key_buf = [0u8; 50];
+        let key = encode_server_online_key(sid, &mut key_buf);
         let users = self.pool.smembers::<Vec<UserId>, _>(key).await?;
         Ok(users)
     }
@@ -83,10 +103,11 @@ impl RedisService {
             return Ok(Vec::new());
         }
 
-        let keys: Vec<String> = sids
-            .iter()
-            .map(|sid| format!("server:{sid}:online"))
-            .collect();
+        let mut keys: Vec<String> = Vec::with_capacity(sids.len());
+        for sid in sids {
+            let mut key_buf = [0u8; 50];
+            keys.push(encode_server_online_key(*sid, &mut key_buf).to_string());
+        }
 
         let users = self.pool.sunion::<Vec<UserId>, _>(keys).await?;
         Ok(users)
@@ -94,10 +115,11 @@ impl RedisService {
 
     /// Добавить сессию в черный список
     pub async fn revoke_session(&self, session_id: SessionId, exp: i64) -> Result<(), RedisError> {
-        let key = format!("blacklist:{session_id}");
+        let mut key_buf = [0u8; 46];
+        let key = encode_blacklist_key(session_id, &mut key_buf);
 
         self.pool
-            .set::<(), String, _>(key, 1, Some(Expiration::EXAT(exp)), None, false)
+            .set::<(), &str, _>(key, 1, Some(Expiration::EXAT(exp)), None, false)
             .await?;
 
         Ok(())
@@ -106,12 +128,15 @@ impl RedisService {
     /// Добавить массив сессий в черный список
     pub async fn revoke_sessions_list(&self, sids: &[SessionId]) -> Result<(), RedisError> {
         let trx = self.pool.multi();
+        let exp = settings!().access_token_expire();
 
         for sid in sids {
-            trx.set::<(), String, _>(
-                format!("blacklist:{sid}"),
+            let mut key_buf = [0u8; 46];
+            let key = encode_blacklist_key(*sid, &mut key_buf);
+            trx.set::<(), &str, _>(
+                key,
                 1,
-                Some(Expiration::EXAT(settings!().access_token_expire())),
+                Some(Expiration::EXAT(exp)),
                 None,
                 false,
             )
@@ -127,8 +152,9 @@ impl RedisService {
         &self,
         session_id: SessionId,
     ) -> Result<bool, RedisError> {
-        let key = format!("blacklist:{session_id}");
-        let res = self.pool.exists::<bool, String>(key).await?;
+        let mut key_buf = [0u8; 46];
+        let key = encode_blacklist_key(session_id, &mut key_buf);
+        let res = self.pool.exists::<bool, _>(key).await?;
         Ok(res)
     }
 
@@ -137,9 +163,17 @@ impl RedisService {
         token: &str,
         user_info: &[u8],
     ) -> Result<(), RedisError> {
-        let key = format!("email_validation:{token}");
+        let mut key_buf = [0u8; 96];
+        let key = if token.len() <= 75 {
+            key_buf[..17].copy_from_slice(b"email_validation:");
+            key_buf[17..17 + token.len()].copy_from_slice(token.as_bytes());
+            std::str::from_utf8(&key_buf[..17 + token.len()]).unwrap_or("")
+        } else {
+            &format!("email_validation:{token}")
+        };
+
         self.pool
-            .set::<(), String, &[u8]>(
+            .set::<(), &str, &[u8]>(
                 key,
                 user_info,
                 Some(Expiration::EX(
@@ -153,9 +187,17 @@ impl RedisService {
     }
 
     pub async fn get_email_validated_info(&self, token: &str) -> Result<Vec<u8>, RedisError> {
-        let key = format!("email_validation:{token}");
-        let user_info = self.pool.get::<Vec<u8>, &str>(&key).await?;
-        self.pool.del::<(), &str>(&key).await?;
+        let mut key_buf = [0u8; 96];
+        let key = if token.len() <= 75 {
+            key_buf[..17].copy_from_slice(b"email_validation:");
+            key_buf[17..17 + token.len()].copy_from_slice(token.as_bytes());
+            std::str::from_utf8(&key_buf[..17 + token.len()]).unwrap_or("")
+        } else {
+            &format!("email_validation:{token}")
+        };
+
+        let user_info = self.pool.get::<Vec<u8>, &str>(key).await?;
+        self.pool.del::<(), &str>(key).await?;
         Ok(user_info)
     }
 }

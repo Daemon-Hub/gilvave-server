@@ -104,7 +104,6 @@ impl ProfileService {
             .await?;
 
         self.get_user_view(user_id).await
-
     }
 
     pub async fn get_themes_list(&self, offset: i64) -> Result<(Vec<Theme>, bool), DatabaseError> {
@@ -126,15 +125,14 @@ impl ProfileService {
             rows.truncate(20);
         }
 
-        let servers = rows
-            .iter()
-            .map(Theme::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut themes = Vec::with_capacity(rows.len());
+        for row in &rows {
+            themes.push(Theme::from_row(row)?);
+        }
 
-        Ok((servers, has_more))
+        Ok((themes, has_more))
     }
 
-    /// TODO: Закончить функцию создания темы
     pub async fn create_theme(
         &self,
         author: String,
@@ -177,14 +175,12 @@ impl ProfileService {
 
     /// Синхронная обработка изображения
     pub fn process_avatar_sync(avatar: &Avatar) -> Result<(Bytes, String), CoreError> {
-        // Проверяем размер не более 5 MB
         if avatar.bytes.len() > 5 * 1024 * 1024 {
             return Err(CoreError::PayloadTooLarge(
                 "Avatar too large. Max 5 MB".to_string(),
             ));
         }
 
-        // Определяем формат изображения
         _ = match image::ImageFormat::from_extension(
             std::path::Path::new(&avatar.filename)
                 .extension()
@@ -197,7 +193,6 @@ impl ProfileService {
                 f
             }
             _ => {
-                // Пробуем определить по содержимому
                 match image::guess_format(&avatar.bytes) {
                     Ok(f)
                         if f == ImageFormat::Jpeg
@@ -215,7 +210,6 @@ impl ProfileService {
             }
         };
 
-        // Декодируем изображение
         let img = match image::load_from_memory(&avatar.bytes) {
             Ok(img) => img,
             Err(e) => {
@@ -226,11 +220,9 @@ impl ProfileService {
             }
         };
 
-        // Изменяем размер до 512x512 (максимальный размер аватара)
         let resized = img.resize(512, 512, image::imageops::FilterType::Lanczos3);
 
-        // Кодируем обратно в WebP (хорошее сжатие)
-        let mut output_bytes = Vec::new();
+        let mut output_bytes = Vec::with_capacity(32 * 1024);
         match resized.write_to(&mut Cursor::new(&mut output_bytes), ImageFormat::WebP) {
             Ok(_) => (),
             Err(e) => {

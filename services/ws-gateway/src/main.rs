@@ -32,15 +32,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let queue_name = format!("gateway_events_{}", state.node_id);
     let mut iggy_rx = start_consumer(state.broker.get_client(), &queue_name).await;
 
-    // Ограничиваем параллелизм — backpressure + контроль за пулом БД
     let concurrency = std::sync::Arc::new(Semaphore::new(100));
     let broadcast_state = state.clone();
 
-    // Параллельная обработка событий с backpressure
     tokio::spawn(async move {
         tracing::info!("[Iggy] Started listening events");
 
-        while let Some(json_str) = iggy_rx.recv().await {
+        while let Some(payload) = iggy_rx.recv().await {
             let Ok(permit) = concurrency.clone().acquire_owned().await else {
                 break;
             };
@@ -48,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
             tokio::spawn(async move {
                 let _permit = permit;
-                let event: events::BrokerEvent = match serde_json::from_str(&json_str) {
+                let event: events::BrokerEvent = match serde_json::from_slice(&payload) {
                     Ok(e) => e,
                     Err(e) => {
                         tracing::error!("[Iggy] Failed to parse broadcast event: {e}");

@@ -97,7 +97,7 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
         while let Some(Ok(msg)) = receiver.next().await {
             match msg {
                 Message::Text(text) => {
-                    handle_event(text.as_str(), state.clone(), user.clone(), tx.clone()).await;
+                    handle_event(text.as_str(), &state, &user, &tx).await;
                 }
                 Message::Close(_) => {
                     break;
@@ -129,9 +129,9 @@ pub async fn handle_socket(ws: WebSocket, user: User, state: AppState) {
 
 pub async fn handle_event(
     text: &str,
-    state: AppState,
-    user: User,
-    sender: UnboundedSender<Arc<str>>,
+    state: &AppState,
+    user: &User,
+    sender: &UnboundedSender<Arc<str>>,
 ) {
     dispatch_event!(text, state, user, sender, [ClientEvent,]);
 }

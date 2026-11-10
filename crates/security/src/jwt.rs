@@ -4,6 +4,7 @@ use jsonwebtoken::{
     DecodingKey, EncodingKey, Header, Validation, decode, encode, errors::Result as JwtResult,
 };
 use sha2::{Digest, Sha256};
+use std::sync::LazyLock;
 use uuid::Uuid;
 
 use gilvave_core::{
@@ -12,6 +13,12 @@ use gilvave_core::{
 };
 use gilvave_settings::settings;
 
+static ENCODING_KEY: LazyLock<EncodingKey> =
+    LazyLock::new(|| EncodingKey::from_secret(settings!().secret.as_bytes()));
+
+static DECODING_KEY: LazyLock<DecodingKey> =
+    LazyLock::new(|| DecodingKey::from_secret(settings!().secret.as_bytes()));
+
 pub fn create_jwt(session_id: SessionId, user_id: UserId) -> JwtResult<String> {
     let claims = Claims {
         sub: user_id,
@@ -19,25 +26,16 @@ pub fn create_jwt(session_id: SessionId, user_id: UserId) -> JwtResult<String> {
         exp: settings!().access_token_expire(),
         jti: Uuid::new_v4(),
     };
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(settings!().secret.as_bytes()),
-    )
+    encode(&Header::default(), &claims, &ENCODING_KEY)
 }
 
 pub fn decode_jwt(token: &str) -> JwtResult<Claims> {
-    let data = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(settings!().secret.as_bytes()),
-        &Validation::default(),
-    )?;
-
+    let data = decode::<Claims>(token, &DECODING_KEY, &Validation::default())?;
     Ok(data.claims)
 }
 
 pub fn generate_url_safe_token() -> String {
-    let mut bytes = vec![0u8; 64];
+    let mut bytes = [0u8; 64];
     OsRng.fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
 }

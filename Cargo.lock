@@ -2800,6 +2800,7 @@ dependencies = [
 name = "gilvave-messaging"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "futures",
  "gilvave-settings",
  "iggy",

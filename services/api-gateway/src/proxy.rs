@@ -6,6 +6,7 @@ use pingora::upstreams::peer::Peer;
 use std::net::{IpAddr, Ipv4Addr};
 use std::time::{Duration, Instant};
 use tokio::sync::OnceCell;
+use uuid::Uuid;
 
 use crate::auth::{extract_token, is_public_path};
 use crate::circuit_breaker::CircuitBreaker;
@@ -14,6 +15,38 @@ use gilvave_redis::RedisService;
 use gilvave_security::jwt::decode_jwt;
 
 const MAX_PAYLOAD_SIZE: usize = 105 * 1024 * 1024;
+
+const RATE_LIMIT_BODY: &[u8] = b"{\"error\":\"Too Many Requests: Rate limit exceeded\"}";
+const RATE_LIMIT_LEN: &str = "48";
+
+const PAYLOAD_TOO_LARGE_BODY: &[u8] = b"{\"error\":\"Payload Too Large: Maximum size is 100MB\"}";
+const PAYLOAD_TOO_LARGE_LEN: &str = "52";
+
+const CIRCUIT_BREAKER_BODY: &[u8] = b"{\"error\":\"Service temporarily unavailable. Circuit breaker is open. Please try again in 5 seconds.\"}";
+const CIRCUIT_BREAKER_LEN: &str = "105";
+
+const UNAUTHORIZED_BODY: &[u8] = b"{\"error\":\"Unauthorized: Invalid or revoked token\"}";
+const UNAUTHORIZED_LEN: &str = "49";
+
+#[inline]
+fn format_ip(ip: IpAddr, buf: &mut [u8; 45]) -> &str {
+    match ip {
+        IpAddr::V4(v4) => {
+            use std::io::Write;
+            let mut cursor = std::io::Cursor::new(&mut buf[..]);
+            let _ = write!(cursor, "{}", v4);
+            let len = cursor.position() as usize;
+            std::str::from_utf8(&buf[..len]).unwrap_or("127.0.0.1")
+        }
+        IpAddr::V6(v6) => {
+            use std::io::Write;
+            let mut cursor = std::io::Cursor::new(&mut buf[..]);
+            let _ = write!(cursor, "{}", v6);
+            let len = cursor.position() as usize;
+            std::str::from_utf8(&buf[..len]).unwrap_or("::1")
+        }
+    }
+}
 
 fn attach_cors_headers(resp: &mut ResponseHeader, session: &Session) {
     if let Some(origin) = session.req_header().headers.get("Origin") {
@@ -59,7 +92,7 @@ pub struct GatewayContext {
     pub start_time: Instant,
     pub user_id: Option<String>,
     pub is_ws: bool,
-    pub request_id: String,
+    pub request_id: Uuid,
     pub client_ip: IpAddr,
 }
 
@@ -72,7 +105,7 @@ impl ProxyHttp for GilvaveApiGateway {
             start_time: Instant::now(),
             user_id: None,
             is_ws: false,
-            request_id: uuid::Uuid::new_v4().to_string(),
+            request_id: Uuid::new_v4(),
             client_ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
         }
     }
@@ -117,7 +150,12 @@ impl ProxyHttp for GilvaveApiGateway {
             ctx.client_ip = inet.ip();
         }
 
-        let ip_str = ctx.client_ip.to_string();
+        let mut ip_buf = [0u8; 45];
+        let ip_str = format_ip(ctx.client_ip, &mut ip_buf);
+
+        let mut req_id_buf = [0u8; 36];
+        let req_id_str = ctx.request_id.hyphenated().encode_lower(&mut req_id_buf);
+
         {
             let req_mut = session.req_header_mut();
             let _ = req_mut.remove_header("x-user-id");
@@ -125,9 +163,9 @@ impl ProxyHttp for GilvaveApiGateway {
             let _ = req_mut.remove_header("x-user-data");
             let _ = req_mut.remove_header("x-user-claims");
 
-            let _ = req_mut.append_header("X-Real-IP", &ip_str);
-            let _ = req_mut.append_header("X-Forwarded-For", &ip_str);
-            let _ = req_mut.append_header("X-Request-ID", &ctx.request_id);
+            let _ = req_mut.append_header("X-Real-IP", ip_str);
+            let _ = req_mut.append_header("X-Forwarded-For", ip_str);
+            let _ = req_mut.append_header("X-Request-ID", &*req_id_str);
         }
 
         if !self.rate_limiter.check(ctx.client_ip) {
@@ -141,10 +179,9 @@ impl ProxyHttp for GilvaveApiGateway {
             attach_cors_headers(&mut resp, session);
             let _ = resp.append_header("Content-Type", "application/json");
             let _ = resp.append_header("Retry-After", "1");
-            let _ = resp.append_header("X-Request-ID", &ctx.request_id);
-            let body =
-                Bytes::from_static(b"{\"error\":\"Too Many Requests: Rate limit exceeded\"}");
-            let _ = resp.append_header("Content-Length", body.len().to_string());
+            let _ = resp.append_header("X-Request-ID", &*req_id_str);
+            let body = Bytes::from_static(RATE_LIMIT_BODY);
+            let _ = resp.append_header("Content-Length", RATE_LIMIT_LEN);
 
             session.write_response_header(Box::new(resp), false).await?;
             session.write_response_body(Some(body), true).await?;
@@ -159,10 +196,9 @@ impl ProxyHttp for GilvaveApiGateway {
             let mut resp = ResponseHeader::build(413, None)?;
             attach_cors_headers(&mut resp, session);
             let _ = resp.append_header("Content-Type", "application/json");
-            let _ = resp.append_header("X-Request-ID", &ctx.request_id);
-            let body =
-                Bytes::from_static(b"{\"error\":\"Payload Too Large: Maximum size is 100MB\"}");
-            let _ = resp.append_header("Content-Length", body.len().to_string());
+            let _ = resp.append_header("X-Request-ID", &*req_id_str);
+            let body = Bytes::from_static(PAYLOAD_TOO_LARGE_BODY);
+            let _ = resp.append_header("Content-Length", PAYLOAD_TOO_LARGE_LEN);
 
             session.write_response_header(Box::new(resp), false).await?;
             session.write_response_body(Some(body), true).await?;
@@ -194,11 +230,9 @@ impl ProxyHttp for GilvaveApiGateway {
             attach_cors_headers(&mut resp, session);
             let _ = resp.append_header("Content-Type", "application/json");
             let _ = resp.append_header("Retry-After", "5");
-            let _ = resp.append_header("X-Request-ID", &ctx.request_id);
-            let body = Bytes::from_static(
-                b"{\"error\":\"Service temporarily unavailable. Circuit breaker is open. Please try again in 5 seconds.\"}",
-            );
-            let _ = resp.append_header("Content-Length", body.len().to_string());
+            let _ = resp.append_header("X-Request-ID", &*req_id_str);
+            let body = Bytes::from_static(CIRCUIT_BREAKER_BODY);
+            let _ = resp.append_header("Content-Length", CIRCUIT_BREAKER_LEN);
 
             session.write_response_header(Box::new(resp), false).await?;
             session.write_response_body(Some(body), true).await?;
@@ -226,7 +260,7 @@ impl ProxyHttp for GilvaveApiGateway {
                 "Content-Type, Authorization, X-Requested-With, Accept, Sec-WebSocket-Protocol, X-Request-ID",
             );
             let _ = resp.append_header("Access-Control-Max-Age", "86400");
-            let _ = resp.append_header("X-Request-ID", &ctx.request_id);
+            let _ = resp.append_header("X-Request-ID", &*req_id_str);
             let _ = resp.append_header("Content-Length", "0");
 
             session.write_response_header(Box::new(resp), true).await?;
@@ -241,30 +275,27 @@ impl ProxyHttp for GilvaveApiGateway {
             let auth_result = match token_opt {
                 Some(token_str) => match decode_jwt(token_str) {
                     Ok(claims) => {
-                        if let Ok(redis) = self.get_redis().await {
+                        let is_revoked = if let Ok(redis) = self.get_redis().await {
                             match redis.get_session_revocation_status(claims.sid).await {
-                                Ok(true) => {
-                                    tracing::warn!("[GATEWAY AUTH] Session {} revoked", claims.sid);
-                                    Err("Session revoked".to_string())
-                                }
-                                Ok(false) => {
-                                    let user_id_str = claims.sub.0.to_string();
-                                    let claims_json =
-                                        serde_json::to_string(&claims).unwrap_or_default();
-                                    Ok((user_id_str, claims_json))
-                                }
+                                Ok(true) => true,
+                                Ok(false) => false,
                                 Err(e) => {
                                     tracing::error!(
                                         "[GATEWAY REDIS] Error checking session revocation: {e}"
                                     );
-                                    let user_id_str = claims.sub.0.to_string();
-                                    let claims_json =
-                                        serde_json::to_string(&claims).unwrap_or_default();
-                                    Ok((user_id_str, claims_json))
+                                    false
                                 }
                             }
                         } else {
-                            let user_id_str = claims.sub.0.to_string();
+                            false
+                        };
+
+                        if is_revoked {
+                            tracing::warn!("[GATEWAY AUTH] Session {} revoked", claims.sid);
+                            Err("Session revoked".to_string())
+                        } else {
+                            let mut user_id_buf = [0u8; 36];
+                            let user_id_str = claims.sub.encode_hyphenated(&mut user_id_buf).to_string();
                             let claims_json = serde_json::to_string(&claims).unwrap_or_default();
                             Ok((user_id_str, claims_json))
                         }
@@ -291,11 +322,9 @@ impl ProxyHttp for GilvaveApiGateway {
                     let mut resp = ResponseHeader::build(401, None)?;
                     attach_cors_headers(&mut resp, session);
                     let _ = resp.append_header("Content-Type", "application/json");
-                    let _ = resp.append_header("X-Request-ID", &ctx.request_id);
-                    let body = Bytes::from_static(
-                        b"{\"error\":\"Unauthorized: Invalid or revoked token\"}",
-                    );
-                    let _ = resp.append_header("Content-Length", body.len().to_string());
+                    let _ = resp.append_header("X-Request-ID", &*req_id_str);
+                    let body = Bytes::from_static(UNAUTHORIZED_BODY);
+                    let _ = resp.append_header("Content-Length", UNAUTHORIZED_LEN);
 
                     session.write_response_header(Box::new(resp), false).await?;
                     session.write_response_body(Some(body), true).await?;
@@ -363,7 +392,9 @@ impl ProxyHttp for GilvaveApiGateway {
         upstream_response: &mut ResponseHeader,
         ctx: &mut Self::CTX,
     ) -> pingora::Result<()> {
-        let _ = upstream_response.append_header("X-Request-ID", &ctx.request_id);
+        let mut req_id_buf = [0u8; 36];
+        let req_id_str = ctx.request_id.hyphenated().encode_lower(&mut req_id_buf);
+        let _ = upstream_response.append_header("X-Request-ID", &*req_id_str);
 
         if let Some(origin) = session.req_header().headers.get("Origin") {
             let _ = upstream_response.remove_header("Access-Control-Allow-Origin");
@@ -395,9 +426,12 @@ impl ProxyHttp for GilvaveApiGateway {
 
         let user_info = ctx.user_id.as_deref().unwrap_or("anonymous");
 
+        let mut req_id_buf = [0u8; 36];
+        let req_id_str = ctx.request_id.hyphenated().encode_lower(&mut req_id_buf);
+
         tracing::info!(
             "[GATEWAY] [{}] {} {} [{}] from {} -> status: {} ({:?})",
-            ctx.request_id,
+            req_id_str,
             method,
             path,
             user_info,

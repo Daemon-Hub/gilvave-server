@@ -32,7 +32,7 @@ pub async fn upload_file(
             .unwrap_or_else(|| format!("file_{}", time::OffsetDateTime::now_utc().unix_timestamp()));
 
         if name_attr == "file" || file_data.is_none() {
-            let mut bytes = Vec::new();
+            let mut bytes = Vec::with_capacity(64 * 1024);
             let mut total_size: u64 = 0;
 
             while let Ok(Some(chunk)) = field.chunk().await {
@@ -57,7 +57,7 @@ pub async fn upload_file(
                 .filter(|n| !n.is_empty())
                 .unwrap_or_else(|| format!("file_{}", time::OffsetDateTime::now_utc().unix_timestamp()));
 
-            let safe_file_name = if safe_file_name.chars().count() > 255 {
+            let safe_file_name = if safe_file_name.len() > 255 && safe_file_name.chars().count() > 255 {
                 safe_file_name.chars().take(255).collect::<String>()
             } else {
                 safe_file_name
@@ -76,29 +76,29 @@ pub async fn upload_file(
     let file_id = FileId::default();
     let key = format!("{}/{}.{}", claims.sub, file_id, ext);
 
+    let size_kb = (bytes.len() as f64 / 1024.0).ceil() as i32;
+
     let url = match file_type {
         FileType::Image => {
             state
                 .s3
-                .send_image(&key, bytes.clone().into(), Some(mime_type))
+                .send_image(&key, bytes.into(), Some(mime_type))
                 .await
         }
         FileType::Video => {
             state
                 .s3
-                .send_video(&key, bytes.clone().into(), Some(mime_type))
+                .send_video(&key, bytes.into(), Some(mime_type))
                 .await
         }
         FileType::File => {
             state
                 .s3
-                .send_file(&key, bytes.clone().into(), Some(mime_type))
+                .send_file(&key, bytes.into(), Some(mime_type))
                 .await
         }
     }
     .map_err(|e| CoreError::InternalServerError(format!("S3 upload error: {e}")))?;
-
-    let size_kb = (bytes.len() as f64 / 1024.0).ceil() as i32;
 
     state
         .files
@@ -156,24 +156,25 @@ pub async fn download_file(
 
     let safe_ascii_name: String = file
         .name
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
-                c
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_') {
+                b as char
             } else {
                 '_'
             }
         })
         .collect();
 
-    // RFC 5987 / RFC 6266 percent-encoded UTF-8 filename for full Unicode (Cyrillic, emojis, etc.)
+    const HEX_UPPER: &[u8; 16] = b"0123456789ABCDEF";
     let mut encoded_name = String::with_capacity(file.name.len() * 3);
-    for b in file.name.as_bytes() {
-        if b.is_ascii_alphanumeric() || matches!(*b, b'.' | b'-' | b'_' | b'~') {
-            encoded_name.push(*b as char);
+    for &b in file.name.as_bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'~') {
+            encoded_name.push(b as char);
         } else {
-            use std::fmt::Write;
-            let _ = write!(encoded_name, "%{:02X}", b);
+            encoded_name.push('%');
+            encoded_name.push(HEX_UPPER[(b >> 4) as usize] as char);
+            encoded_name.push(HEX_UPPER[(b & 0xF) as usize] as char);
         }
     }
 
@@ -185,7 +186,7 @@ pub async fn download_file(
     headers.insert(header::CONTENT_DISPOSITION, cd);
     headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
 
-    Ok((headers, data.to_vec()))
+    Ok((headers, data.into_bytes()))
 }
 
 /// Получение метаданных файла

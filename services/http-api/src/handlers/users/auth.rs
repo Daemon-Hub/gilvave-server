@@ -49,9 +49,12 @@ pub async fn register_validate(
     body.email = email;
 
     let token = generate_url_safe_token();
+    let body_slice = body
+        .to_slice()
+        .map_err(|e| CoreError::InternalServerError(e.to_string()))?;
     state
         .redis
-        .set_email_validation_info(&token, &body.to_slice())
+        .set_email_validation_info(&token, &body_slice)
         .await?;
 
     let state = state.clone();
@@ -73,7 +76,8 @@ pub async fn register_confirm(
     Query(params): Query<ConfirmParams>,
 ) -> Result<Html<&'static str>, CoreError> {
     let raw_info = state.redis.get_email_validated_info(&params.token).await?;
-    let user_info = CreateUserInfo::from_slice(raw_info);
+    let user_info = CreateUserInfo::from_slice(&raw_info)
+        .map_err(|e| CoreError::BadRequest(format!("Invalid registration session: {e}")))?;
 
     state.users.auth.create(user_info).await?;
 

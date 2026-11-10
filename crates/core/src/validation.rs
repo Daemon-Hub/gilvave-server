@@ -79,11 +79,7 @@ pub fn validate_username(username: &str) -> Result<(), &'static str> {
         return Err("Имя пользователя не может быть пустым");
     }
 
-    let char_count = trimmed.chars().count();
-    if !(2..=32).contains(&char_count) {
-        return Err("Имя пользователя должно содержать от 2 до 32 символов");
-    }
-
+    let mut char_count = 0;
     let mut has_latin = false;
     let mut has_cyrillic = false;
     let mut has_greek = false;
@@ -91,6 +87,11 @@ pub fn validate_username(username: &str) -> Result<(), &'static str> {
     let mut total_combining = 0;
 
     for c in trimmed.chars() {
+        char_count += 1;
+        if char_count > 32 {
+            return Err("Имя пользователя должно содержать от 2 до 32 символов");
+        }
+
         if c.is_control() {
             return Err("Имя пользователя содержит недопустимые управляющие символы");
         }
@@ -127,6 +128,10 @@ pub fn validate_username(username: &str) -> Result<(), &'static str> {
                 "Имя пользователя может содержать только буквы, цифры и символы '_', '.', '-'",
             );
         }
+    }
+
+    if char_count < 2 {
+        return Err("Имя пользователя должно содержать от 2 до 32 символов");
     }
 
     // Защита от спуфинга: обнаружение атак со смешиванием алфавитов (например, кириллическая А с латинскими dmin)
@@ -214,24 +219,24 @@ pub const MAX_MESSAGE_CHARS: usize = 16_384;
 /// Подсчитывает количество реальных напечатанных пользователем символов в сообщении,
 /// исключая технические URL вложений (data-URL, S3-ссылки, file-ID).
 pub fn count_typed_chars(content: &str) -> usize {
+    let bytes = content.as_bytes();
+    let len = bytes.len();
     let mut count = 0;
-    let chars: Vec<char> = content.chars().collect();
-    let len = chars.len();
     let mut i = 0;
 
     while i < len {
         // Проверяем начало изображения ![alt](url)
-        if chars[i] == '!' && i + 1 < len && chars[i + 1] == '[' {
+        if bytes[i] == b'!' && i + 1 < len && bytes[i + 1] == b'[' {
             let mut j = i + 2;
-            while j < len && chars[j] != ']' {
+            while j < len && bytes[j] != b']' {
                 j += 1;
             }
-            if j < len && chars[j] == ']' && j + 1 < len && chars[j + 1] == '(' {
+            if j < len && bytes[j] == b']' && j + 1 < len && bytes[j + 1] == b'(' {
                 let mut k = j + 2;
-                while k < len && chars[k] != ')' {
+                while k < len && bytes[k] != b')' {
                     k += 1;
                 }
-                if k < len && chars[k] == ')' {
+                if k < len && bytes[k] == b')' {
                     // Изображения не считаются за напечатанный текст
                     i = k + 1;
                     continue;
@@ -240,24 +245,29 @@ pub fn count_typed_chars(content: &str) -> usize {
         }
 
         // Проверяем ссылку на файл [name](file:id) или [name](url)
-        if chars[i] == '[' {
+        if bytes[i] == b'[' {
             let mut j = i + 1;
-            while j < len && chars[j] != ']' {
+            while j < len && bytes[j] != b']' {
                 j += 1;
             }
-            if j < len && chars[j] == ']' && j + 1 < len && chars[j + 1] == '(' {
+            if j < len && bytes[j] == b']' && j + 1 < len && bytes[j + 1] == b'(' {
                 let mut k = j + 2;
-                while k < len && chars[k] != ')' {
+                while k < len && bytes[k] != b')' {
                     k += 1;
                 }
-                if k < len && chars[k] == ')' {
-                    let link_target: String = chars[j + 2..k].iter().collect();
-                    if link_target.starts_with("file:")
-                        || link_target.starts_with("data:")
-                        || link_target.contains("/files/")
+                if k < len && bytes[k] == b')' {
+                    let link_target = &bytes[j + 2..k];
+                    if link_target.starts_with(b"file:")
+                        || link_target.starts_with(b"data:")
+                        || link_target.windows(7).any(|w| w == b"/files/")
                     {
                         // Учитываем видимое имя файла [name], но пропускаем технический URL вложения
-                        count += j - (i + 1);
+                        let name_bytes = &bytes[i + 1..j];
+                        for &b in name_bytes {
+                            if (b & 0xC0) != 0x80 {
+                                count += 1;
+                            }
+                        }
                         i = k + 1;
                         continue;
                     }
@@ -266,17 +276,23 @@ pub fn count_typed_chars(content: &str) -> usize {
         }
 
         // Проверяем прямые data: URL (например, data:image/...;base64,...)
-        if i + 5 <= len {
-            let slice: String = chars[i..i + 5].iter().collect();
-            if slice == "data:" {
-                while i < len && !chars[i].is_whitespace() && chars[i] != ')' && chars[i] != '"' {
-                    i += 1;
-                }
-                continue;
+        if i + 5 <= len && &bytes[i..i + 5] == b"data:" {
+            while i < len
+                && bytes[i] != b' '
+                && bytes[i] != b'\t'
+                && bytes[i] != b'\n'
+                && bytes[i] != b'\r'
+                && bytes[i] != b')'
+                && bytes[i] != b'"'
+            {
+                i += 1;
             }
+            continue;
         }
 
-        count += 1;
+        if (bytes[i] & 0xC0) != 0x80 {
+            count += 1;
+        }
         i += 1;
     }
 

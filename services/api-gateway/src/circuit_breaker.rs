@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 /// Состояние предохранителя Circuit Breaker.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum BreakerStatus {
     /// Штатная работа: апстрим доступен, запросы пропускаются.
     Closed,

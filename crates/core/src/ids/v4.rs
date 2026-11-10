@@ -12,6 +12,13 @@ macro_rules! id_type {
         )]
         pub struct $name(pub Uuid);
 
+        impl $name {
+            #[inline]
+            pub fn encode_hyphenated<'a>(&self, buf: &'a mut [u8; 36]) -> &'a mut str {
+                self.0.hyphenated().encode_lower(buf)
+            }
+        }
+
         impl Default for $name {
             fn default() -> Self {
                 Self(Uuid::new_v4())

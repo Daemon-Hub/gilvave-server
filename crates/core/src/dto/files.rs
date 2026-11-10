@@ -8,6 +8,7 @@ use crate::{
 
 /// Категория файла
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
 #[serde(rename_all = "lowercase")]
 pub enum FileType {
     Image,

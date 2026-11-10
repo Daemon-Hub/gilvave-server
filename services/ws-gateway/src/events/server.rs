@@ -1,10 +1,17 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use gilvave_core::{
     dto::messages::MessageView,
     ids::{ChannelId, MessageId, ServerId, UserId},
 };
+
+static HEARTBEAT_ACK_JSON: LazyLock<Arc<str>> =
+    LazyLock::new(|| Arc::from("{\"op\":\"HEARTBEAT_ACK\"}"));
+static HELLO_JSON: LazyLock<Arc<str>> =
+    LazyLock::new(|| Arc::from("{\"op\":\"HELLO\"}"));
+static JOIN_SUCCESS_JSON: LazyLock<Arc<str>> =
+    LazyLock::new(|| Arc::from("{\"op\":\"JOIN_SUCCESS\"}"));
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op", content = "d")]
@@ -38,6 +45,11 @@ pub enum ServerEvent {
 
 impl ServerEvent {
     pub fn to_json(&self) -> Arc<str> {
-        Arc::from(serde_json::to_string(self).unwrap_or_else(|_| "{}".to_string()))
+        match self {
+            Self::HeartbeatAck => HEARTBEAT_ACK_JSON.clone(),
+            Self::Hello => HELLO_JSON.clone(),
+            Self::JoinSuccess => JOIN_SUCCESS_JSON.clone(),
+            _ => Arc::from(serde_json::to_string(self).unwrap_or_else(|_| "{}".to_string())),
+        }
     }
 }

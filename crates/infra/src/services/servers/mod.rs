@@ -135,10 +135,10 @@ impl ServersService {
             rows.truncate(20);
         }
 
-        let servers = rows
-            .iter()
-            .map(Server::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut servers = Vec::with_capacity(rows.len());
+        for row in &rows {
+            servers.push(Server::from_row(row)?);
+        }
 
         Ok((servers, has_more))
     }
@@ -148,7 +148,8 @@ impl ServersService {
         &self,
         user_id: UserId,
     ) -> Result<Vec<ServerSmallPart>, DatabaseError> {
-        self.db
+        let rows = self
+            .db
             .query(
                 r#"
                 SELECT s.id, s.name, s.icon_url, ($1 = s.owner_id) as is_owner
@@ -159,10 +160,13 @@ impl ServersService {
                 "#,
                 &[&user_id.0],
             )
-            .await?
-            .iter()
-            .map(ServerSmallPart::from_row)
-            .collect()
+            .await?;
+
+        let mut list = Vec::with_capacity(rows.len());
+        for row in &rows {
+            list.push(ServerSmallPart::from_row(row)?);
+        }
+        Ok(list)
     }
 
     /// Проверить, является ли пользователь владельцем сервера
@@ -203,7 +207,8 @@ impl ServersService {
 
     /// Получить список участников сервера
     pub async fn get_members(&self, server_id: ServerId) -> Result<Vec<MemberView>, DatabaseError> {
-        self.db
+        let rows = self
+            .db
             .query(
                 r#"
                 SELECT users.id, users.username, COALESCE(p.avatar, '') AS avatar 
@@ -214,9 +219,12 @@ impl ServersService {
                 "#,
                 &[&server_id.0],
             )
-            .await?
-            .iter()
-            .map(MemberView::from_row)
-            .collect::<Result<Vec<_>, _>>()
+            .await?;
+
+        let mut list = Vec::with_capacity(rows.len());
+        for row in &rows {
+            list.push(MemberView::from_row(row)?);
+        }
+        Ok(list)
     }
 }

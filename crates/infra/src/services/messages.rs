@@ -85,7 +85,8 @@ impl MessagesService {
         &self,
         info: GetHistoryInfo,
     ) -> Result<Vec<MessageView>, DatabaseError> {
-        self.db
+        let rows = self
+            .db
             .query(
                 r#"
                 SELECT id, channel_id, author_id, author_name, content, edited, reply_to_id, forwarded_from, created_at 
@@ -96,17 +97,21 @@ impl MessagesService {
                 "#,
                 &[&info.channel_id.0, &info.timestamp],
             )
-            .await?
-            .iter()
-            .map(MessageView::from_row)
-            .collect::<Result<Vec<_>, _>>()
+            .await?;
+
+        let mut list = Vec::with_capacity(rows.len());
+        for row in &rows {
+            list.push(MessageView::from_row(row)?);
+        }
+        Ok(list)
     }
 
     pub async fn get_history_after(
         &self,
         info: GetHistoryInfo,
     ) -> Result<Vec<MessageView>, DatabaseError> {
-        self.db
+        let rows = self
+            .db
             .query(
                 r#"
                 SELECT id, channel_id, author_id, author_name, content, edited, reply_to_id, forwarded_from, created_at 
@@ -117,9 +122,12 @@ impl MessagesService {
                 "#,
                 &[&info.channel_id.0, &info.timestamp],
             )
-            .await?
-            .iter()
-            .map(MessageView::from_row)
-            .collect::<Result<Vec<_>, _>>()
+            .await?;
+
+        let mut list = Vec::with_capacity(rows.len());
+        for row in &rows {
+            list.push(MessageView::from_row(row)?);
+        }
+        Ok(list)
     }
 }

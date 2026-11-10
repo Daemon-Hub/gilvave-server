@@ -63,6 +63,7 @@ impl From<DatabaseError> for CoreError {
 pub enum DatabaseError {
     Pool(deadpool_postgres::PoolError),
     Postgres(tokio_postgres::Error),
+    Other(String),
 }
 
 impl From<deadpool_postgres::PoolError> for DatabaseError {
@@ -88,6 +89,7 @@ impl std::fmt::Display for DatabaseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DatabaseError::Pool(e) => write!(f, "Database pool error: {e}"),
+            DatabaseError::Other(e) => write!(f, "Database error: {e}"),
             DatabaseError::Postgres(e) => {
                 if let Some(d) = e.as_db_error() {
                     write!(

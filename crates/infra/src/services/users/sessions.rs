@@ -136,7 +136,7 @@ impl SessionsService {
         user_id: UserId,
         session_id: SessionId,
     ) -> Result<Vec<SessionId>, DatabaseError> {
-        Ok(self
+        let rows = self
             .db
             .query(
                 r#"
@@ -146,10 +146,13 @@ impl SessionsService {
                 "#,
                 &[&user_id, &session_id],
             )
-            .await?
-            .iter()
-            .map(|r| r.get(0))
-            .collect::<Vec<SessionId>>())
+            .await?;
+
+        let mut list = Vec::with_capacity(rows.len());
+        for r in &rows {
+            list.push(r.get(0));
+        }
+        Ok(list)
     }
 
     pub async fn update(
@@ -195,7 +198,7 @@ impl SessionsService {
                 &[&user_id],
             )
             .await?;
-        let mut sessions = Vec::new();
+        let mut sessions = Vec::with_capacity(rows.len());
         for row in rows {
             let session = SessionView::from_row(&row)?;
             let sid = session.id;
@@ -205,8 +208,9 @@ impl SessionsService {
     }
 
     pub async fn blacklist_token(&self, info: BlacklistInfo) -> Result<(), DatabaseError> {
-        let claims = decode_jwt(&info.token).unwrap();
-        let exp = OffsetDateTime::from_unix_timestamp(claims.exp).unwrap();
+        let claims = decode_jwt(&info.token).map_err(|e| DatabaseError::Other(e.to_string()))?;
+        let exp = OffsetDateTime::from_unix_timestamp(claims.exp)
+            .map_err(|e| DatabaseError::Other(e.to_string()))?;
 
         self.db
             .execute(

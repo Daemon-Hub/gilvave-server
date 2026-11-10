@@ -77,7 +77,11 @@ impl FilesService {
             )
             .await?;
 
-        rows.iter().map(File::from_row).collect()
+        let mut list = Vec::with_capacity(rows.len());
+        for row in &rows {
+            list.push(File::from_row(row)?);
+        }
+        Ok(list)
     }
 
     /// Удаление файла по ID
@@ -111,7 +115,11 @@ impl FilesService {
             )
             .await?;
 
-        rows.iter().map(File::from_row).collect()
+        let mut list = Vec::with_capacity(rows.len());
+        for row in &rows {
+            list.push(File::from_row(row)?);
+        }
+        Ok(list)
     }
 
     /// Привязка файла к сообщению

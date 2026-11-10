@@ -108,8 +108,8 @@ impl IggyBroker {
 pub async fn start_consumer(
     client: Arc<IggyClient>,
     consumer_name: &str,
-) -> mpsc::Receiver<String> {
-    let (tx, rx) = mpsc::channel::<String>(10000); // Буфер на 10к сообщений
+) -> mpsc::Receiver<bytes::Bytes> {
+    let (tx, rx) = mpsc::channel::<bytes::Bytes>(10000); // Буфер на 10к сообщений
     let consumer_name = consumer_name.to_string();
 
     let stream = Identifier::named("messages").expect("Valid stream identifier");
@@ -163,16 +163,11 @@ pub async fn start_consumer(
                     idle_duration = tokio::time::Duration::from_millis(5);
 
                     for msg in polled.messages {
-                        match std::str::from_utf8(&msg.payload) {
-                            Ok(data) => {
-                                if tx.send(data.to_string()).await.is_err() {
-                                    tracing::info!(
-                                        "[Apache Iggy] Consumer channel closed, stopping worker"
-                                    );
-                                    return;
-                                }
-                            }
-                            Err(_) => tracing::error!("[Apache Iggy] Invalid UTF-8 received"),
+                        if tx.send(msg.payload).await.is_err() {
+                            tracing::info!(
+                                "[Apache Iggy] Consumer channel closed, stopping worker"
+                            );
+                            return;
                         }
                     }
                 }

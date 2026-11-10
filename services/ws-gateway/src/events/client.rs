@@ -61,7 +61,7 @@ pub enum ClientEvent {
 
 #[async_trait::async_trait]
 impl EventHandler for ClientEvent {
-    async fn handle(self, state: AppState, user: User, sender: UnboundedSender<Arc<str>>) {
+    async fn handle(self, state: &AppState, user: &User, sender: &UnboundedSender<Arc<str>>) {
         match self {
             Self::Heartbeat => {
                 _ = sender.send(ServerEvent::HeartbeatAck.to_json());
@@ -97,7 +97,7 @@ impl EventHandler for ClientEvent {
                     .create(CreateInfo {
                         channel_id,
                         author_id: user.id,
-                        author_name: user.username,
+                        author_name: user.username.clone(),
                         content: sanitized_content,
                         reply_to_id,
                         forwarded_from,
