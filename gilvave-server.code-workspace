@@ -108,7 +108,7 @@
             {
                 "label": "HTTP RUN",
                 "type": "shell",
-                "command": "cargo run -p gilvave-http-api",
+                "command": "cargo run -p gilvave-http-api ",
                 "problemMatcher": [
                     "$rustc-watch"
                 ],

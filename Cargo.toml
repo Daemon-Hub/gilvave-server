@@ -53,8 +53,15 @@ argon2 = "0.5.3"
 mimalloc = { version = "0.1.52", features = ["local_dynamic_tls"] }
 
 [profile.dev]
-debug = 1
+debug = 0
+strip = "debuginfo"
 
 # Отключить генерацию отладочных символов для ВСЕХ сторонних зависимостей
 [profile.dev.package."*"]
 debug = 0
+
+[profile.release]
+opt-level = 3        # максимум оптимизаций скорости и SIMD-векторизации
+lto = "fat"          # глобальная оптимизация
+codegen-units = 1    # агрессивный инлайнинг через весь граф вызовов
+strip = "debuginfo"  # удаляет тяжелый DWARF, но оставляет имена функций для логов паник и профайлера 
